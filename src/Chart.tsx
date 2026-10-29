@@ -31,17 +31,25 @@ export function Chart({ input, onPickUsers }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<number | null>(null); // users under cursor
 
-  // Narrow containers get a smaller viewBox so labels stay readable instead of shrinking with the SVG.
-  const [narrow, setNarrow] = useState(false);
+  // The viewBox follows the container's aspect ratio so the chart fills its box without distorting text.
+  // Narrow containers get a smaller viewBox width so labels stay readable.
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState({ w: 1000, h: 420 });
   useEffect(() => {
-    const el = svgRef.current;
+    const el = boxRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(([entry]) => setNarrow(entry.contentRect.width < 560));
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      if (width > 0) setBox({ w: width, h: height });
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
-  const W = narrow ? 560 : 1000, H = narrow ? 460 : 420;
+  const narrow = box.w < 560;
+  const W = narrow ? 560 : 1000;
+  const ratio = box.h > 40 ? box.h / box.w : 0.42;
+  const H = Math.round(W * Math.min(0.9, Math.max(0.3, ratio)));
   const PAD = narrow ? { l: 72, r: 16, t: 36, b: 64 } : { l: 96, r: 28, t: 36, b: 70 };
   const iw = W - PAD.l - PAD.r;
   const ih = H - PAD.t - PAD.b;
@@ -107,10 +115,10 @@ export function Chart({ input, onPickUsers }: Props) {
   const beX = out.breakEvenUsers && out.breakEvenUsers >= xMin && out.breakEvenUsers <= xMax ? xOf(out.breakEvenUsers) : null;
 
   return (
-    <figure className="rounded-2xl border border-transparent p-4 sm:p-5">
-      <figcaption className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <span className="text-base font-semibold uppercase tracking-wide text-sky-300/90">📉 Receita, custos e lucro por usuários</span>
-        <ul className="flex flex-wrap gap-x-5 gap-y-1 text-base text-slate-300">
+    <figure className="flex min-h-0 flex-col rounded-xl border border-transparent px-3 py-2">
+      <figcaption className="mb-1 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <span className="text-sm font-semibold uppercase tracking-wide text-sky-300/90">📉 Receita, custos e lucro por usuários</span>
+        <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-300">
           {SERIES.map((s) => (
             <li className="flex items-center gap-2" key={s.key}>
               <span className="h-3 w-3 rounded-full" style={{ background: s.color }} />
@@ -124,9 +132,10 @@ export function Chart({ input, onPickUsers }: Props) {
         </ul>
       </figcaption>
 
+      <div className="min-h-[220px] w-full lg:min-h-0 lg:flex-1" ref={boxRef}>
       <svg
         aria-label="Gráfico de receita, custos e lucro mensais em reais conforme o número de usuários"
-        className="h-auto w-full cursor-crosshair select-none touch-none font-sans"
+        className="block h-auto w-full cursor-crosshair select-none touch-none font-sans lg:h-full"
         ref={svgRef}
         role="img"
         viewBox={`0 0 ${W} ${H}`}
@@ -198,6 +207,7 @@ export function Chart({ input, onPickUsers }: Props) {
           </g>
         ) : null}
       </svg>
+      </div>
     </figure>
   );
 }

@@ -6,23 +6,22 @@
 }
 
 html {
-  font-size: 18px;
+  font-size: 15px;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   font-feature-settings: "tnum";
 }
-@media (min-width: 640px) { html { font-size: 19px; } }
-@media (min-width: 1280px) { html { font-size: 20px; } }
-@media (min-width: 1920px) { html { font-size: 22px; } }
+@media (min-width: 1280px) { html { font-size: 16px; } }
+@media (min-width: 1920px) { html { font-size: 18px; } }
 
 body { background: #020617; color: #fff; font-family: var(--font-sans); }
 
-.range { -webkit-appearance: none; appearance: none; height: 8px; border-radius: 9999px;
+.range { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 9999px;
   background: linear-gradient(90deg, var(--accent, #34d399) var(--fill, 0%), #0f172a var(--fill, 0%)); outline: none; cursor: pointer; }
-.range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 26px; height: 26px; border-radius: 9999px;
-  background: #fff; border: 4px solid var(--accent, #34d399); box-shadow: 0 2px 8px rgba(0,0,0,.4); transition: transform .15s ease, box-shadow .15s ease; }
+.range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 9999px;
+  background: #fff; border: 3px solid var(--accent, #34d399); box-shadow: 0 2px 8px rgba(0,0,0,.4); transition: transform .15s ease, box-shadow .15s ease; }
 .range:hover::-webkit-slider-thumb, .range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent, #34d399) 25%, transparent); }
 .range:active::-webkit-slider-thumb { box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent, #34d399) 30%, transparent); }
-.range::-moz-range-thumb { width: 26px; height: 26px; border-radius: 9999px; background: #fff; border: 4px solid var(--accent, #34d399); }
+.range::-moz-range-thumb { width: 20px; height: 20px; border-radius: 9999px; background: #fff; border: 3px solid var(--accent, #34d399); }
 
 @media (prefers-reduced-motion: reduce) { * { transition-duration: 0.01ms !important; animation: none !important; } }
