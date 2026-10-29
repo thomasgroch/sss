@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
 import { Chart } from "./Chart";
 import { GrowthChart } from "./GrowthChart";
-import { DEFAULTS, LIMITS, type SimInput, clamp, simulate, sliderToUsers, usersToSlider } from "./sim";
+import { DEFAULTS, LIMITS, type SimInput, clamp, simulate, sliderToUsers, timeline, usersToSlider } from "./sim";
 
 // ---------- formatting ----------
 export const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -156,10 +156,10 @@ function Breakdown({ mrr, fixed, variable, net }: { mrr: number; fixed: number; 
 
 // ---------- presets ----------
 const PRESETS: { name: string; emoji: string; patch: Partial<SimInput> }[] = [
-  { name: "Indie Solo", emoji: "🌱", patch: { users: 800, conversion: 4, priceBrl: 49, fixedCostsBrl: 1_500, variablePct: 10, growthPct: 5 } },
-  { name: "Indie Pro", emoji: "🧑‍💻", patch: { users: 5_000, conversion: 5, priceBrl: 79, fixedCostsBrl: 8_000, variablePct: 10, growthPct: 7 } },
-  { name: "Startup", emoji: "🚀", patch: { users: 25_000, conversion: 5, priceBrl: 99, fixedCostsBrl: 60_000, variablePct: 12, growthPct: 12 } },
-  { name: "Multitenancy", emoji: "🏢", patch: { users: 500_000, conversion: 2.5, priceBrl: 149, fixedCostsBrl: 600_000, variablePct: 8, growthPct: 4 } }
+  { name: "Indie Solo", emoji: "🌱", patch: { users: 800, conversion: 4, priceBrl: 49, fixedCostsBrl: 1_500, variablePct: 10, growthPct: 5, buildMonths: 2 } },
+  { name: "Indie Pro", emoji: "🧑‍💻", patch: { users: 5_000, conversion: 5, priceBrl: 79, fixedCostsBrl: 8_000, variablePct: 10, growthPct: 7, buildMonths: 3 } },
+  { name: "Startup", emoji: "🚀", patch: { users: 25_000, conversion: 5, priceBrl: 99, fixedCostsBrl: 60_000, variablePct: 12, growthPct: 12, buildMonths: 4 } },
+  { name: "Multitenancy", emoji: "🏢", patch: { users: 500_000, conversion: 2.5, priceBrl: 149, fixedCostsBrl: 600_000, variablePct: 8, growthPct: 4, buildMonths: 6 } }
 ];
 
 const btn = "rounded-full border border-transparent bg-white px-3 py-1 text-sm font-medium text-zinc-700 shadow-sm ring-1 ring-zinc-200 transition-colors hover:bg-zinc-50 focus-visible:border-zinc-400 focus-visible:outline-none";
@@ -171,6 +171,7 @@ export function App() {
   const [input, setInput] = useState<SimInput>(DEFAULTS);
   const set = <K extends keyof SimInput>(k: K) => (v: SimInput[K]) => setInput((p) => ({ ...p, [k]: v }));
   const out = useMemo(() => simulate(input), [input]);
+  const tl = useMemo(() => timeline(input), [input]);
   const [hover, setHover] = useState<number | null>(null); // users under the cursor, shared by both charts
   const status = out.net >= 0
     ? { cls: "text-emerald-700", text: `✅ Rentável: margem de ${out.margin.toFixed(1).replace(".", ",")}% sobre a receita` }
@@ -194,12 +195,14 @@ export function App() {
 
       <section aria-label="Resultados" className={`${panel} flex flex-col gap-1 bg-white shadow-sm lg:min-h-0 lg:flex-1`}>
         <h2 className={`${h2} text-zinc-500`}><span className="h-2 w-2 rounded-full bg-zinc-400" />Resultados</h2>
-        <div className="grid gap-1 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-1 sm:grid-cols-2 xl:grid-cols-6">
           <Metric emoji="📈" label="Receita mensal" value={out.mrr} usd={out.mrrUsd} sub={`${int.format(out.payingUsers)} pagantes × ${brl.format(out.priceBrl)}`} />
           <Metric emoji="🗓️" label="Receita anual" value={out.arr} usd={out.arrUsd} />
           <Metric emoji="💸" label="Custos mensais" value={out.totalCosts} sub={`${brl.format(input.fixedCostsBrl)} fixos + ${brl.format(out.variableCosts)} variáveis`} />
           <Metric emoji="🧾" label="Lucro mensal" value={out.net} usd={out.netUsd} signed />
           <Metric emoji="🏆" label="Lucro anual" value={out.netAnnual} usd={out.netAnnualUsd} signed />
+          <Metric emoji="🏗️" label="Investimento inicial" value={-tl.investment} signed
+            sub={tl.paybackMonth !== null ? `Recuperado no mês ${tl.paybackMonth}` : input.buildMonths === 0 ? "Lançamento imediato" : "Não recuperado em 2 anos"} />
         </div>
         <div className="grid gap-1 lg:min-h-0 lg:flex-1 xl:grid-cols-[minmax(0,5fr)_minmax(0,5fr)_minmax(0,3fr)]">
           <Chart hover={hover} input={input} onHover={setHover} onPickUsers={set("users")} />
@@ -212,12 +215,12 @@ export function App() {
         </div>
       </section>
 
-      <div className="grid gap-1.5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="grid gap-1.5 lg:grid-cols-[minmax(0,4fr)_minmax(0,3fr)]">
         <section aria-label="Receita" className={`${panel} bg-emerald-50`}>
           <h2 className={`${h2} text-emerald-700`}><span className="h-2 w-2 rounded-full bg-emerald-500" />Receita</h2>
           <div className="grid md:grid-cols-2 xl:grid-cols-4">
-            <Control tone="revenue" emoji="👥" label="Usuários" value={input.users} onChange={set("users")} min={LIMITS.users.min} max={LIMITS.users.max} step={1}
-              toSlider={usersToSlider} fromSlider={sliderToUsers} sliderMax={1000} format={(v) => int.format(v)} hint="Base total, de 100 a 1 milhão (escala logarítmica)." />
+            <Control tone="revenue" emoji="👥" label="Usuários no lançamento" value={input.users} onChange={set("users")} min={LIMITS.users.min} max={LIMITS.users.max} step={1}
+              toSlider={usersToSlider} fromSlider={sliderToUsers} sliderMax={1000} format={(v) => int.format(v)} hint="Base ao lançar, de 100 a 1 milhão (escala logarítmica). Os cards mostram esse cenário." />
             <Control tone="revenue" emoji="💳" label="Conversão" value={input.conversion} onChange={set("conversion")} min={LIMITS.conversion.min} max={LIMITS.conversion.max} step={LIMITS.conversion.step}
               format={(v) => v.toFixed(1).replace(".", ",")} suffix="%" hint="Quantos da base pagam. Freemium costuma ficar entre 2% e 5%." />
             <Control tone="revenue" emoji="💵" label="Preço mensal" value={input.priceBrl} onChange={set("priceBrl")} min={LIMITS.priceBrl.min} max={LIMITS.priceBrl.max} step={LIMITS.priceBrl.step}
@@ -228,11 +231,13 @@ export function App() {
         </section>
         <section aria-label="Custos" className={`${panel} bg-amber-50`}>
           <h2 className={`${h2} text-amber-700`}><span className="h-2 w-2 rounded-full bg-amber-500" />Custos</h2>
-          <div className="grid md:grid-cols-2">
+          <div className="grid md:grid-cols-3">
             <Control tone="costs" emoji="🏗️" label="Custos fixos" value={input.fixedCostsBrl} onChange={set("fixedCostsBrl")} min={LIMITS.fixedCostsBrl.min} max={LIMITS.fixedCostsBrl.max} step={LIMITS.fixedCostsBrl.step}
               format={(v) => int.format(v)} prefix="R$" suffix="/mês" hint="Equipe, ferramentas e marketing: não mudam com o número de usuários." />
             <Control tone="costs" emoji="☁️" label="Custos variáveis" value={input.variablePct} onChange={set("variablePct")} min={LIMITS.variablePct.min} max={LIMITS.variablePct.max} step={LIMITS.variablePct.step}
               format={(v) => v.toFixed(0)} suffix="% da receita" hint="Taxas de pagamento, infra e suporte que crescem com a receita. Típico: 10% a 20%." />
+            <Control tone="costs" emoji="⏳" label="Construção" value={input.buildMonths} onChange={set("buildMonths")} min={LIMITS.buildMonths.min} max={LIMITS.buildMonths.max} step={LIMITS.buildMonths.step}
+              format={(v) => v.toFixed(0)} suffix="meses" hint="Meses sem usuários antes do lançamento, pagando os custos fixos." />
           </div>
         </section>
       </div>
