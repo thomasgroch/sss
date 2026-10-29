@@ -97,9 +97,9 @@ export function Chart({ input, onPickUsers }: Props) {
   const beX = out.breakEvenUsers && out.breakEvenUsers >= xMin && out.breakEvenUsers <= xMax ? xOf(out.breakEvenUsers) : null;
 
   return (
-    <figure className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 sm:p-5">
+    <figure className="rounded-2xl border border-transparent bg-sky-950/30 p-4 sm:p-5">
       <figcaption className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <span className="text-sm font-semibold uppercase tracking-wide text-slate-400">📉 Receita, custos e lucro por usuários</span>
+        <span className="text-sm font-semibold uppercase tracking-wide text-sky-400/80">📉 Receita, custos e lucro por usuários</span>
         <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-300">
           {SERIES.map((s) => (
             <li className="flex items-center gap-2" key={s.key}>
@@ -165,7 +165,7 @@ export function Chart({ input, onPickUsers }: Props) {
             <line stroke="#e2e8f0" strokeOpacity="0.5" strokeWidth="1" x1={hx} x2={hx} y1={PAD.t} y2={PAD.t + ih} />
             {SERIES.map((s) => <circle cx={hx} cy={yOf(hovered[s.key])} fill={s.color} key={s.key} r="5" />)}
             <foreignObject height="150" width="250" x={tooltipLeft ? hx + 14 : hx - 264} y={PAD.t}>
-              <div className="rounded-xl border border-slate-700 bg-slate-950/95 px-3 py-2 text-sm shadow-xl">
+              <div className="rounded-xl bg-slate-950/95 px-3 py-2 text-sm shadow-xl ring-1 ring-white/10">
                 <div className="mb-1 font-semibold text-white">{int.format(hover)} usuários</div>
                 {SERIES.map((s) => (
                   <div className="flex items-center justify-between gap-4" key={s.key}>

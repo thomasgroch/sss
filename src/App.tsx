@@ -95,9 +95,19 @@ interface ControlProps {
   toSlider?: (v: number) => number;
   fromSlider?: (p: number) => number;
   sliderMax?: number;
+  tone: Tone;
 }
 
+/** Visual group colors. Borders stay transparent so nothing shifts when a state changes. */
+type Tone = "revenue" | "costs" | "results";
+const TONES: Record<Tone, { heading: string; card: string; cardActive: string; value: string; fill: string; dot: string }> = {
+  revenue: { heading: "text-emerald-400", card: "bg-emerald-950/40", cardActive: "focus-within:border-emerald-500/50", value: "text-emerald-300", fill: "#34d399", dot: "bg-emerald-400" },
+  costs: { heading: "text-amber-400", card: "bg-amber-950/30", cardActive: "focus-within:border-amber-500/50", value: "text-amber-300", fill: "#fbbf24", dot: "bg-amber-400" },
+  results: { heading: "text-sky-400", card: "bg-sky-950/30", cardActive: "focus-within:border-sky-500/50", value: "text-sky-300", fill: "#38bdf8", dot: "bg-sky-400" }
+};
+
 function Control(p: ControlProps) {
+  const t = TONES[p.tone];
   const [draft, setDraft] = useState<string | null>(null);
   const sliderValue = p.toSlider ? p.toSlider(p.value) : p.value;
   const sliderMax = p.sliderMax ?? p.max;
@@ -111,13 +121,13 @@ function Control(p: ControlProps) {
   };
 
   return (
-    <label className="group block rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-5 transition-colors duration-300 hover:border-slate-700 focus-within:border-emerald-500/60 focus-within:bg-slate-900">
+    <label className={`group block rounded-2xl border border-transparent ${t.card} p-4 sm:p-5 transition-colors duration-300 ${t.cardActive}`}>
       <div className="mb-3 flex items-center justify-between gap-3">
         <span className="flex items-center gap-2 text-base font-semibold text-slate-200">
           <span aria-hidden="true">{p.emoji}</span>
           {p.label}
         </span>
-        <span className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 font-mono text-base font-semibold text-emerald-300 transition-colors duration-200 focus-within:border-emerald-500">
+        <span className={`flex items-center gap-1 rounded-lg border border-transparent bg-slate-950/80 px-2.5 py-1.5 font-mono text-base font-semibold ${t.value} transition-colors duration-200 focus-within:bg-slate-950`}>
           {p.prefix ? <span className="text-slate-500">{p.prefix}</span> : null}
           <input
             aria-label={`${p.label} (valor)`}
@@ -142,7 +152,7 @@ function Control(p: ControlProps) {
         max={sliderMax}
         min={sliderMin}
         step={p.toSlider ? 1 : p.step}
-        style={{ "--fill": `${fill}%` } as JSX.CSSProperties}
+        style={{ "--fill": `${fill}%`, "--accent": t.fill } as JSX.CSSProperties}
         type="range"
         value={sliderValue}
         onInput={(e) => {
@@ -178,13 +188,13 @@ function Metric(m: MetricProps) {
   const tint =
     dir === "up" ? "border-emerald-500/60 shadow-[0_0_0_4px_rgba(16,185,129,0.12)]"
     : dir === "down" ? "border-rose-500/60 shadow-[0_0_0_4px_rgba(244,63,94,0.12)]"
-    : "border-slate-800";
+    : "border-transparent";
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border bg-slate-900/70 p-4 sm:p-5 transition-[border-color,box-shadow] duration-500 ease-out ${tint} ${m.big ? "sm:col-span-2" : ""}`}
+      className={`relative overflow-hidden rounded-2xl border bg-sky-950/30 p-4 sm:p-5 transition-[border-color,box-shadow] duration-500 ease-out ${tint} ${m.big ? "sm:col-span-2" : ""}`}
       style={{ transitionDelay: `${m.delay ?? 0}ms` }}
     >
-      <div className="mb-1.5 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+      <div className="mb-1.5 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-sky-400/80">
         <span aria-hidden="true">{m.emoji}</span>
         {m.label}
         {dir ? (
@@ -195,7 +205,7 @@ function Metric(m: MetricProps) {
       </div>
       <div
         aria-live="polite"
-        className={`min-w-0 break-words font-mono tabular-nums tracking-tight leading-tight transition-colors duration-500 ${m.big ? "text-[clamp(2.25rem,3.4vw,3.75rem)]" : "text-[clamp(1.6rem,2vw,2.25rem)]"} ${negative ? "text-rose-300" : "text-white"}`}
+        className={`min-w-0 whitespace-nowrap font-mono tabular-nums tracking-tight leading-tight transition-colors duration-500 ${m.big ? "text-[clamp(2rem,3.2vw,3.75rem)]" : "text-[clamp(1.35rem,1.7vw,2.25rem)]"} ${negative ? "text-rose-300" : "text-white"}`}
       >
         {fmt(animated)}
       </div>
@@ -214,14 +224,14 @@ function Breakdown({ mrr, fixed, variable, net }: { mrr: number; fixed: number; 
   const seg = "h-full transition-[width] duration-500 ease-out";
   const overspend = net < 0;
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 sm:p-5">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+    <div className="rounded-2xl border border-transparent bg-sky-950/30 p-4 sm:p-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm font-semibold uppercase tracking-wide text-sky-400/80">
         <span>🧮 Para onde vai cada real</span>
         <span className={`transition-colors duration-500 ${overspend ? "text-rose-400" : "text-emerald-400"}`}>
           {overspend ? "custos acima da receita" : "operação rentável"}
         </span>
       </div>
-      <div className="flex h-6 w-full overflow-hidden rounded-full bg-slate-800">
+      <div className="flex h-6 w-full overflow-hidden rounded-full bg-slate-900">
         <div className={`${seg} bg-amber-400`} style={{ width: w(fixed) }} title="Custos fixos" />
         <div className={`${seg} bg-sky-400`} style={{ width: w(variable) }} title="Custos variáveis" />
         <div className={`${seg} ${overspend ? "bg-rose-500" : "bg-emerald-400"}`} style={{ width: w(Math.max(0, net)) }} title="Lucro" />
@@ -249,9 +259,10 @@ function Legend({ color, label, value }: { color: string; label: string; value: 
 // ---------- presets ----------
 
 const PRESETS: { name: string; emoji: string; patch: Partial<SimInput> }[] = [
-  { name: "Indie", emoji: "🌱", patch: { users: 1_000, conversion: 4, priceUsd: 9, fixedCostsBrl: 2_000, variablePct: 10 } },
+  { name: "Indie Solo", emoji: "🌱", patch: { users: 800, conversion: 4, priceUsd: 9, fixedCostsBrl: 1_500, variablePct: 10 } },
+  { name: "Indie Pro", emoji: "🧑‍💻", patch: { users: 5_000, conversion: 5, priceUsd: 15, fixedCostsBrl: 8_000, variablePct: 10 } },
   { name: "Startup", emoji: "🚀", patch: { users: 25_000, conversion: 5, priceUsd: 19, fixedCostsBrl: 60_000, variablePct: 12 } },
-  { name: "Scale-up", emoji: "🏢", patch: { users: 300_000, conversion: 3, priceUsd: 29, fixedCostsBrl: 400_000, variablePct: 15 } }
+  { name: "Multitenancy", emoji: "🏢", patch: { users: 500_000, conversion: 2.5, priceUsd: 29, fixedCostsBrl: 600_000, variablePct: 8 } }
 ];
 
 // ---------- app ----------
@@ -265,7 +276,7 @@ function FxChip({ value, onChange }: { value: number; onChange: (v: number) => v
     setDraft(null);
   };
   return (
-    <label className="flex items-center gap-1.5 rounded-full border border-slate-800 bg-slate-900/60 px-4 py-2 text-sm text-slate-400 transition-colors duration-200 focus-within:border-emerald-500/60 hover:border-slate-600">
+    <label className="flex items-center gap-1.5 rounded-full border border-transparent bg-slate-900 px-4 py-2 text-sm text-slate-400 transition-colors duration-200 focus-within:border-slate-500 hover:bg-slate-800">
       <span aria-hidden="true">💱</span>
       <span>US$ 1 =</span>
       <span className="text-slate-500">R$</span>
@@ -313,7 +324,7 @@ export function App() {
           <div className="flex flex-wrap items-center gap-2">
             {PRESETS.map((pr) => (
               <button
-                className="rounded-full border border-slate-700 px-4 py-2 text-base text-slate-300 transition-all duration-200 hover:border-emerald-500 hover:text-white active:scale-95"
+                className="rounded-full border border-transparent bg-slate-900 px-4 py-2 text-base text-slate-300 transition-colors duration-200 hover:bg-slate-800 hover:text-white focus-visible:border-slate-500 focus-visible:outline-none"
                 key={pr.name}
                 type="button"
                 onClick={() => setInput((prev) => ({ ...prev, ...pr.patch }))}
@@ -322,7 +333,7 @@ export function App() {
               </button>
             ))}
             <button
-              className="rounded-full border border-slate-800 px-4 py-2 text-base text-slate-500 transition-all duration-200 hover:border-slate-600 hover:text-slate-300 active:scale-95"
+              className="rounded-full border border-transparent bg-slate-900/60 px-4 py-2 text-base text-slate-500 transition-colors duration-200 hover:bg-slate-800 hover:text-slate-300 focus-visible:border-slate-500 focus-visible:outline-none"
               type="button"
               onClick={() => setInput(DEFAULTS)}
             >
@@ -335,32 +346,32 @@ export function App() {
         <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
           {/* ---- controls ---- */}
           <section aria-label="Parâmetros" className="space-y-3">
-            <h2 className="px-1 text-sm font-bold uppercase tracking-widest text-slate-500">Receita</h2>
+            <h2 className="flex items-center gap-2 px-1 text-sm font-bold uppercase tracking-widest text-emerald-400"><span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />Receita</h2>
             <Control
-              emoji="👥" label="Usuários" value={input.users} onChange={set("users")}
+              tone="revenue" emoji="👥" label="Usuários" value={input.users} onChange={set("users")}
               min={LIMITS.users.min} max={LIMITS.users.max} step={1}
               toSlider={usersToSlider} fromSlider={sliderToUsers} sliderMax={1000}
               format={(v) => int.format(v)} hint="Base total, de 100 a 1 milhão (escala logarítmica)."
             />
             <Control
-              emoji="💳" label="Conversão" value={input.conversion} onChange={set("conversion")}
+              tone="revenue" emoji="💳" label="Conversão" value={input.conversion} onChange={set("conversion")}
               min={LIMITS.conversion.min} max={LIMITS.conversion.max} step={LIMITS.conversion.step}
               format={(v) => v.toFixed(1)} suffix="%" hint="Quantos da base pagam. Freemium costuma ficar entre 2% e 5%."
             />
             <Control
-              emoji="💵" label="Preço mensal" value={input.priceUsd} onChange={set("priceUsd")}
+              tone="revenue" emoji="💵" label="Preço mensal" value={input.priceUsd} onChange={set("priceUsd")}
               min={LIMITS.priceUsd.min} max={LIMITS.priceUsd.max} step={LIMITS.priceUsd.step}
               format={(v) => v.toFixed(0)} prefix="US$" hint={`Equivale a ${brl.format(out.priceBrl)} por assinante.`}
             />
 
-            <h2 className="px-1 pt-3 text-sm font-bold uppercase tracking-widest text-slate-500">Custos</h2>
+            <h2 className="flex items-center gap-2 px-1 pt-3 text-sm font-bold uppercase tracking-widest text-amber-400"><span className="h-2.5 w-2.5 rounded-full bg-amber-400" />Custos</h2>
             <Control
-              emoji="🏗️" label="Custos fixos" value={input.fixedCostsBrl} onChange={set("fixedCostsBrl")}
+              tone="costs" emoji="🏗️" label="Custos fixos" value={input.fixedCostsBrl} onChange={set("fixedCostsBrl")}
               min={LIMITS.fixedCostsBrl.min} max={LIMITS.fixedCostsBrl.max} step={LIMITS.fixedCostsBrl.step}
               format={(v) => int.format(v)} prefix="R$" suffix="/mês" hint="Equipe, ferramentas e marketing: não mudam com o número de usuários."
             />
             <Control
-              emoji="☁️" label="Custos variáveis (da receita)" value={input.variablePct} onChange={set("variablePct")}
+              tone="costs" emoji="☁️" label="Custos variáveis (da receita)" value={input.variablePct} onChange={set("variablePct")}
               min={LIMITS.variablePct.min} max={LIMITS.variablePct.max} step={LIMITS.variablePct.step}
               format={(v) => v.toFixed(0)} suffix="%" hint="Taxas de pagamento, infra e suporte que crescem junto com a receita. Típico: 10% a 20%."
             />
@@ -368,7 +379,7 @@ export function App() {
 
           {/* ---- results ---- */}
           <section aria-label="Resultados" className="space-y-3">
-            <h2 className="px-1 text-sm font-bold uppercase tracking-widest text-slate-500">Resultados</h2>
+            <h2 className="flex items-center gap-2 px-1 text-sm font-bold uppercase tracking-widest text-sky-400"><span className="h-2.5 w-2.5 rounded-full bg-sky-400" />Resultados</h2>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <Metric big emoji="📈" label="Receita mensal" value={out.mrr} usd={out.mrrUsd} sub={`${int.format(out.payingUsers)} clientes pagantes × ${brl.format(out.priceBrl)}`} />
               <Metric emoji="🗓️" label="Receita anual" value={out.arr} usd={out.arrUsd} delay={40} />
