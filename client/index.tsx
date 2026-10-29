@@ -159,8 +159,9 @@ function Control(p: ControlProps) {
 interface MetricProps {
   label: string;
   emoji: string;
-  value: number;
-  format: (v: number) => string;
+  value: number; // BRL
+  usd?: number; // optional secondary value
+  format?: (v: number) => string;
   sub?: string;
   big?: boolean;
   signed?: boolean;
@@ -169,22 +170,24 @@ interface MetricProps {
 
 function Metric(m: MetricProps) {
   const animated = useAnimatedNumber(m.value);
+  const animatedUsd = useAnimatedNumber(m.usd ?? 0);
   const dir = useChangeDirection(m.value);
   const negative = m.signed && m.value < 0;
+  const fmt = m.format ?? ((v: number) => brl.format(v));
   const tint =
     dir === "up" ? "border-emerald-500/60 shadow-[0_0_0_4px_rgba(16,185,129,0.12)]"
     : dir === "down" ? "border-rose-500/60 shadow-[0_0_0_4px_rgba(244,63,94,0.12)]"
     : "border-slate-800";
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border bg-slate-900/70 p-4 transition-[border-color,box-shadow,transform] duration-500 ease-out ${tint} ${m.big ? "sm:col-span-2" : ""}`}
+      className={`relative overflow-hidden rounded-2xl border bg-slate-900/70 p-4 transition-[border-color,box-shadow] duration-500 ease-out ${tint} ${m.big ? "sm:col-span-2" : ""}`}
       style={{ transitionDelay: `${m.delay ?? 0}ms` }}
     >
       <div className="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-400">
         <span aria-hidden="true">{m.emoji}</span>
         {m.label}
         {dir ? (
-          <span aria-hidden="true" className={`ml-auto text-sm transition-opacity duration-300 ${dir === "up" ? "text-emerald-400" : "text-rose-400"}`}>
+          <span aria-hidden="true" className={`ml-auto text-sm ${dir === "up" ? "text-emerald-400" : "text-rose-400"}`}>
             {dir === "up" ? "▲" : "▼"}
           </span>
         ) : null}
@@ -193,37 +196,38 @@ function Metric(m: MetricProps) {
         aria-live="polite"
         className={`font-mono tabular-nums tracking-tight transition-colors duration-500 ${m.big ? "text-3xl sm:text-4xl" : "text-2xl"} ${negative ? "text-rose-300" : "text-white"}`}
       >
-        {m.format(animated)}
+        {fmt(animated)}
       </div>
+      {m.usd !== undefined ? (
+        <div className="mt-1 font-mono text-xs tabular-nums text-slate-500">{usd.format(animatedUsd)}</div>
+      ) : null}
       {m.sub ? <div className="mt-1 text-xs text-slate-500">{m.sub}</div> : null}
     </div>
   );
 }
 
-/** Stacked bar: where each dollar of MRR goes. Widths animate with CSS. */
-function Breakdown({ mrr, fixed, infra, fee, net }: { mrr: number; fixed: number; infra: number; fee: number; net: number }) {
-  const total = Math.max(mrr, fixed + infra + fee, 1);
+/** Stacked bar: where each real of revenue goes. Widths animate with CSS. */
+function Breakdown({ mrr, fixed, variable, net }: { mrr: number; fixed: number; variable: number; net: number }) {
+  const total = Math.max(mrr, fixed + variable, 1);
   const w = (v: number) => `${Math.max(0, (v / total) * 100)}%`;
   const seg = "h-full transition-[width] duration-500 ease-out";
   const overspend = net < 0;
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
       <div className="mb-3 flex items-center justify-between text-xs font-medium uppercase tracking-wide text-slate-400">
-        <span>🧮 Para onde vai cada dólar do MRR</span>
+        <span>🧮 Para onde vai cada real</span>
         <span className={`transition-colors duration-500 ${overspend ? "text-rose-400" : "text-emerald-400"}`}>
           {overspend ? "custos acima da receita" : "operação rentável"}
         </span>
       </div>
       <div className="flex h-5 w-full overflow-hidden rounded-full bg-slate-800">
         <div className={`${seg} bg-amber-400`} style={{ width: w(fixed) }} title="Custos fixos" />
-        <div className={`${seg} bg-sky-400`} style={{ width: w(infra) }} title="Infraestrutura" />
-        <div className={`${seg} bg-fuchsia-400`} style={{ width: w(fee) }} title="Taxas de pagamento" />
+        <div className={`${seg} bg-sky-400`} style={{ width: w(variable) }} title="Custos variáveis" />
         <div className={`${seg} ${overspend ? "bg-rose-500" : "bg-emerald-400"}`} style={{ width: w(Math.max(0, net)) }} title="Lucro" />
       </div>
-      <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-400 sm:grid-cols-4">
+      <ul className="mt-3 grid grid-cols-3 gap-x-4 gap-y-1 text-xs text-slate-400">
         <Legend color="bg-amber-400" label="Fixos" value={fixed} />
-        <Legend color="bg-sky-400" label="Infra" value={infra} />
-        <Legend color="bg-fuchsia-400" label="Taxas" value={fee} />
+        <Legend color="bg-sky-400" label="Variáveis" value={variable} />
         <Legend color={overspend ? "bg-rose-500" : "bg-emerald-400"} label="Lucro" value={net} />
       </ul>
     </div>
@@ -236,7 +240,7 @@ function Legend({ color, label, value }: { color: string; label: string; value: 
     <li className="flex items-center gap-2">
       <span className={`h-2.5 w-2.5 rounded-full ${color} transition-colors duration-500`} />
       <span>{label}</span>
-      <span className="ml-auto font-mono tabular-nums text-slate-300">{usd.format(animated)}</span>
+      <span className="ml-auto font-mono tabular-nums text-slate-300">{brl.format(animated)}</span>
     </li>
   );
 }
@@ -244,12 +248,43 @@ function Legend({ color, label, value }: { color: string; label: string; value: 
 // ---------- presets ----------
 
 const PRESETS: { name: string; emoji: string; patch: Partial<SimInput> }[] = [
-  { name: "Indie", emoji: "🌱", patch: { users: 1_000, conversion: 4, price: 9, fixedCosts: 500, costPerUser: 0.03 } },
-  { name: "Startup", emoji: "🚀", patch: { users: 25_000, conversion: 5, price: 19, fixedCosts: 12_000, costPerUser: 0.05 } },
-  { name: "Scale-up", emoji: "🏢", patch: { users: 300_000, conversion: 3, price: 29, fixedCosts: 80_000, costPerUser: 0.04 } }
+  { name: "Indie", emoji: "🌱", patch: { users: 1_000, conversion: 4, priceUsd: 9, fixedCostsBrl: 2_000, variablePct: 10 } },
+  { name: "Startup", emoji: "🚀", patch: { users: 25_000, conversion: 5, priceUsd: 19, fixedCostsBrl: 60_000, variablePct: 12 } },
+  { name: "Scale-up", emoji: "🏢", patch: { users: 300_000, conversion: 3, priceUsd: 29, fixedCostsBrl: 400_000, variablePct: 15 } }
 ];
 
 // ---------- app ----------
+
+/** Small inline editor for the exchange rate: secondary setting, rarely changed. */
+function FxChip({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = (raw: string) => {
+    const n = parseFloat(raw.replace(",", "."));
+    if (!Number.isNaN(n)) onChange(clamp(n, LIMITS.fx.min, LIMITS.fx.max));
+    setDraft(null);
+  };
+  return (
+    <label className="flex items-center gap-1.5 rounded-full border border-slate-800 bg-slate-900/60 px-3 py-1.5 text-xs text-slate-400 transition-colors duration-200 focus-within:border-emerald-500/60 hover:border-slate-600">
+      <span aria-hidden="true">💱</span>
+      <span>US$ 1 =</span>
+      <span className="text-slate-500">R$</span>
+      <input
+        aria-label="Câmbio (reais por dólar)"
+        className="w-12 bg-transparent font-mono tabular-nums text-slate-200 outline-none"
+        inputMode="decimal"
+        type="text"
+        value={draft ?? value.toFixed(2).replace(".", ",")}
+        onFocus={() => setDraft(String(value))}
+        onInput={(e) => setDraft((e.currentTarget as HTMLInputElement).value)}
+        onBlur={(e) => commit((e.currentTarget as HTMLInputElement).value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+          if (e.key === "Escape") setDraft(null);
+        }}
+      />
+    </label>
+  );
+}
 
 export function App() {
   const [input, setInput] = useState<SimInput>(DEFAULTS);
@@ -257,7 +292,11 @@ export function App() {
 
   // Computed properties: every result derives from `input`, recomputed instantly.
   const out = useMemo(() => simulate(input), [input]);
-  const payingPct = useMemo(() => (input.users ? (out.payingUsers / input.users) * 100 : 0), [out.payingUsers, input.users]);
+  const status = useMemo(() => {
+    if (out.net >= 0) return { tone: "text-emerald-400", text: `✅ Rentável: margem de ${pct(out.margin)} sobre a receita` };
+    if (out.breakEvenUsers) return { tone: "text-amber-400", text: `⚠️ Prejuízo. Break-even com ${int.format(out.breakEvenUsers)} usuários (${compact(out.breakEvenUsers)})` };
+    return { tone: "text-rose-400", text: "🚫 Sem break-even: custos variáveis consomem toda a receita" };
+  }, [out.net, out.margin, out.breakEvenUsers]);
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-8 text-white sm:px-6 lg:py-12">
@@ -277,10 +316,10 @@ export function App() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">💰 SaaS Subscription Simulator</h1>
             <p className="mt-2 max-w-xl text-sm text-slate-400">
-              Ajuste os parâmetros e acompanhe faturamento, custos e lucro recalculados em tempo real. Tudo roda no seu navegador, nada é salvo.
+              Cinco parâmetros, resultado em reais na hora. Tudo roda no seu navegador, nada é salvo.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {PRESETS.map((pr) => (
               <button
                 className="rounded-full border border-slate-700 px-3 py-1.5 text-sm text-slate-300 transition-all duration-200 hover:border-emerald-500 hover:text-white active:scale-95"
@@ -298,50 +337,41 @@ export function App() {
             >
               ↺ Reset
             </button>
+            <FxChip value={input.fx} onChange={set("fx")} />
           </div>
         </header>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
           {/* ---- controls ---- */}
           <section aria-label="Parâmetros" className="space-y-3">
-            <h2 className="px-1 text-xs font-semibold uppercase tracking-widest text-slate-500">Parâmetros</h2>
+            <h2 className="px-1 text-xs font-semibold uppercase tracking-widest text-slate-500">Receita</h2>
             <Control
               emoji="👥" label="Usuários" value={input.users} onChange={set("users")}
               min={LIMITS.users.min} max={LIMITS.users.max} step={1}
               toSlider={usersToSlider} fromSlider={sliderToUsers} sliderMax={1000}
-              format={(v) => int.format(v)} hint="Escala logarítmica: de 100 a 1 milhão de usuários."
+              format={(v) => int.format(v)} hint="Base total, de 100 a 1 milhão (escala logarítmica)."
             />
             <Control
               emoji="💳" label="Conversão" value={input.conversion} onChange={set("conversion")}
               min={LIMITS.conversion.min} max={LIMITS.conversion.max} step={LIMITS.conversion.step}
-              format={(v) => v.toFixed(1)} suffix="%" hint="Percentual da base que paga. SaaS freemium costuma ficar entre 2% e 5%."
+              format={(v) => v.toFixed(1)} suffix="%" hint="Quantos da base pagam. Freemium costuma ficar entre 2% e 5%."
             />
             <Control
-              emoji="💵" label="Preço mensal" value={input.price} onChange={set("price")}
-              min={LIMITS.price.min} max={LIMITS.price.max} step={LIMITS.price.step}
-              format={(v) => v.toFixed(0)} prefix="US$"
-            />
-            <Control
-              emoji="💱" label="Câmbio" value={input.fx} onChange={set("fx")}
-              min={LIMITS.fx.min} max={LIMITS.fx.max} step={LIMITS.fx.step}
-              format={(v) => v.toFixed(2)} prefix="R$" suffix="/US$"
+              emoji="💵" label="Preço mensal" value={input.priceUsd} onChange={set("priceUsd")}
+              min={LIMITS.priceUsd.min} max={LIMITS.priceUsd.max} step={LIMITS.priceUsd.step}
+              format={(v) => v.toFixed(0)} prefix="US$" hint={`Equivale a ${brl.format(out.priceBrl)} por assinante.`}
             />
 
             <h2 className="px-1 pt-3 text-xs font-semibold uppercase tracking-widest text-slate-500">Custos</h2>
             <Control
-              emoji="🏗️" label="Custos fixos" value={input.fixedCosts} onChange={set("fixedCosts")}
-              min={LIMITS.fixedCosts.min} max={LIMITS.fixedCosts.max} step={LIMITS.fixedCosts.step}
-              format={(v) => int.format(v)} prefix="US$" suffix="/mês" hint="Equipe, ferramentas, marketing."
+              emoji="🏗️" label="Custos fixos" value={input.fixedCostsBrl} onChange={set("fixedCostsBrl")}
+              min={LIMITS.fixedCostsBrl.min} max={LIMITS.fixedCostsBrl.max} step={LIMITS.fixedCostsBrl.step}
+              format={(v) => int.format(v)} prefix="R$" suffix="/mês" hint="Equipe, ferramentas e marketing: não mudam com o número de usuários."
             />
             <Control
-              emoji="☁️" label="Infra por usuário" value={input.costPerUser} onChange={set("costPerUser")}
-              min={LIMITS.costPerUser.min} max={LIMITS.costPerUser.max} step={LIMITS.costPerUser.step}
-              format={(v) => v.toFixed(2)} prefix="US$" suffix="/mês" hint="Hospedagem, banco, e-mails, por usuário (pagante ou não)."
-            />
-            <Control
-              emoji="🏦" label="Taxa de pagamento" value={input.feePct} onChange={set("feePct")}
-              min={LIMITS.feePct.min} max={LIMITS.feePct.max} step={LIMITS.feePct.step}
-              format={(v) => v.toFixed(1)} suffix="%" hint="Stripe, Paddle etc. sobre a receita bruta."
+              emoji="☁️" label="Custos variáveis" value={input.variablePct} onChange={set("variablePct")}
+              min={LIMITS.variablePct.min} max={LIMITS.variablePct.max} step={LIMITS.variablePct.step}
+              format={(v) => v.toFixed(0)} suffix="% da receita" hint="Taxas de pagamento, infra e suporte que crescem junto com a receita. Típico: 10% a 20%."
             />
           </section>
 
@@ -349,23 +379,21 @@ export function App() {
           <section aria-label="Resultados" className="space-y-3">
             <h2 className="px-1 text-xs font-semibold uppercase tracking-widest text-slate-500">Resultados</h2>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Metric emoji="🙋" label="Clientes pagantes" value={out.payingUsers} format={(v) => int.format(Math.round(v))} sub={`${pct(payingPct)} de ${compact(input.users)} usuários`} />
-              <Metric emoji="📊" label="Margem líquida" value={out.margin} format={(v) => pct(v)} signed sub={out.breakEvenUsers ? `Break-even com ${int.format(out.breakEvenUsers)} usuários` : "Sem break-even: custo por usuário supera a receita"} />
-              <Metric big emoji="📈" label="Receita mensal (MRR)" value={out.mrrUsd} format={(v) => usd.format(v)} sub={`${brl.format(out.mrrBrl)} por mês`} />
-              <Metric emoji="🇧🇷" label="MRR em reais" value={out.mrrBrl} format={(v) => brl.format(v)} delay={40} />
-              <Metric emoji="🗓️" label="Receita anual (ARR)" value={out.arrUsd} format={(v) => usd.format(v)} sub={brl.format(out.arrBrl)} delay={80} />
+              <Metric big emoji="📈" label="Receita mensal" value={out.mrr} usd={out.mrrUsd} sub={`${int.format(out.payingUsers)} clientes pagantes × ${brl.format(out.priceBrl)}`} />
+              <Metric emoji="🗓️" label="Receita anual" value={out.arr} usd={out.arrUsd} delay={40} />
+              <Metric emoji="💸" label="Custos mensais" value={out.totalCosts} delay={80} sub={`${brl.format(input.fixedCostsBrl)} fixos + ${brl.format(out.variableCosts)} variáveis`} />
             </div>
 
-            <Breakdown mrr={out.mrrUsd} fixed={input.fixedCosts} infra={out.infraCost} fee={out.feeCost} net={out.netUsd} />
+            <Breakdown mrr={out.mrr} fixed={input.fixedCostsBrl} variable={out.variableCosts} net={out.net} />
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <Metric emoji="💸" label="Custos totais / mês" value={out.totalCosts} format={(v) => usd.format(v)} sub={brl.format(out.totalCosts * input.fx)} delay={120} />
-              <Metric emoji="🧾" label="Lucro mensal" value={out.netUsd} format={(v) => usd.format(v)} signed sub={brl.format(out.netBrl)} delay={160} />
-              <Metric big emoji="🏆" label="Lucro anual estimado" value={out.netAnnualUsd} format={(v) => usd.format(v)} signed sub={`${brl.format(out.netAnnualBrl)} por ano, após custos`} delay={200} />
+              <Metric emoji="🧾" label="Lucro mensal" value={out.net} usd={out.netUsd} signed delay={120} />
+              <Metric emoji="🏆" label="Lucro anual" value={out.netAnnual} usd={out.netAnnualUsd} signed delay={160} />
             </div>
 
-            <p className="px-1 pt-2 text-xs text-slate-600">
-              Estimativas simplificadas: sem churn, impostos ou crescimento mês a mês. Use como ponto de partida, não como plano financeiro.
+            <p aria-live="polite" className={`px-1 pt-1 text-sm font-medium transition-colors duration-500 ${status.tone}`}>{status.text}</p>
+            <p className="px-1 text-xs text-slate-600">
+              Estimativa simplificada: sem churn, impostos ou crescimento mês a mês. Ponto de partida, não plano financeiro.
             </p>
           </section>
         </div>
