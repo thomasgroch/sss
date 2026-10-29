@@ -49,7 +49,7 @@ export function Chart({ input, onPickUsers }: Props) {
   const narrow = box.w < 560;
   const W = narrow ? 560 : 1000;
   const ratio = box.h > 40 ? box.h / box.w : 0.42;
-  const H = Math.round(W * Math.min(0.9, Math.max(0.3, ratio)));
+  const H = Math.round(W * Math.min(0.9, Math.max(0.16, ratio)));
   const PAD = narrow ? { l: 72, r: 16, t: 36, b: 64 } : { l: 96, r: 28, t: 36, b: 70 };
   const iw = W - PAD.l - PAD.r;
   const ih = H - PAD.t - PAD.b;
