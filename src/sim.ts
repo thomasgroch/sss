@@ -3,8 +3,8 @@
 export interface SimInput {
   users: number; // 100 .. 1_000_000
   conversion: number; // % of paying users
-  priceUsd: number; // USD per month, 5 .. 50
-  fx: number; // BRL per USD
+  priceBrl: number; // BRL per month per subscriber
+  fx: number; // BRL per USD, only for the secondary USD figures
   fixedCostsBrl: number; // BRL per month: team, tools, marketing
   variablePct: number; // % of revenue: payment fees + infra that scales with usage
 }
@@ -29,7 +29,7 @@ export interface SimOutput {
 export const LIMITS = {
   users: { min: 100, max: 1_000_000 },
   conversion: { min: 0.1, max: 100, step: 0.1 },
-  priceUsd: { min: 5, max: 50, step: 1 },
+  priceBrl: { min: 10, max: 500, step: 5 },
   fx: { min: 1, max: 10, step: 0.01 },
   fixedCostsBrl: { min: 0, max: 1_000_000, step: 500 },
   variablePct: { min: 0, max: 60, step: 1 }
@@ -38,7 +38,7 @@ export const LIMITS = {
 export const DEFAULTS: SimInput = {
   users: 10_000,
   conversion: 5,
-  priceUsd: 15,
+  priceBrl: 80,
   fx: 5.4,
   fixedCostsBrl: 15_000,
   variablePct: 12
@@ -66,9 +66,9 @@ export function sliderToUsers(pos: number): number {
 
 export function simulate(i: SimInput): SimOutput {
   const payingUsers = Math.round(i.users * (i.conversion / 100));
-  const priceBrl = i.priceUsd * i.fx;
-  const mrrUsd = payingUsers * i.priceUsd;
-  const mrr = mrrUsd * i.fx;
+  const priceBrl = i.priceBrl;
+  const mrr = payingUsers * priceBrl;
+  const mrrUsd = mrr / i.fx;
   const variableCosts = mrr * (i.variablePct / 100);
   const totalCosts = i.fixedCostsBrl + variableCosts;
   const net = mrr - totalCosts;
@@ -84,7 +84,7 @@ export function simulate(i: SimInput): SimOutput {
     mrr,
     mrrUsd,
     arr: mrr * 12,
-    arrUsd: mrrUsd * 12,
+    arrUsd: (mrr * 12) / i.fx,
     variableCosts,
     totalCosts,
     net,

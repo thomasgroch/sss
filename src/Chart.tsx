@@ -1,21 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { LIMITS, type SimInput, simulate } from "./sim";
-
-const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-const int = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
-
-function compact(n: number): string {
-  const abs = Math.abs(n);
-  const sign = n < 0 ? "-" : "";
-  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1).replace(".", ",")}M`;
-  if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(abs >= 10_000 ? 0 : 1).replace(".", ",")}k`;
-  return int.format(n);
-}
+import { brl, compact, int } from "./App";
 
 const SERIES = [
-  { key: "mrr", label: "Receita", color: "#34d399" },
-  { key: "totalCosts", label: "Custos", color: "#fbbf24" },
-  { key: "net", label: "Lucro", color: "#38bdf8" }
+  { key: "mrr", label: "Receita", color: "#059669" },
+  { key: "totalCosts", label: "Custos", color: "#d97706" },
+  { key: "net", label: "Lucro", color: "#2563eb" }
 ] as const;
 
 interface Props {
@@ -115,18 +105,18 @@ export function Chart({ input, onPickUsers }: Props) {
   const beX = out.breakEvenUsers && out.breakEvenUsers >= xMin && out.breakEvenUsers <= xMax ? xOf(out.breakEvenUsers) : null;
 
   return (
-    <figure className="flex min-h-0 flex-col rounded-xl border border-transparent px-3 py-2">
+    <figure className="flex min-h-0 flex-col px-2 py-1">
       <figcaption className="mb-1 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <span className="text-sm font-semibold uppercase tracking-wide text-sky-300/90">📉 Receita, custos e lucro por usuários</span>
-        <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-300">
+        <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">📉 Receita, custos e lucro por usuários</span>
+        <ul className="flex flex-wrap gap-x-3 text-xs text-zinc-600">
           {SERIES.map((s) => (
-            <li className="flex items-center gap-2" key={s.key}>
-              <span className="h-3 w-3 rounded-full" style={{ background: s.color }} />
+            <li className="flex items-center gap-1" key={s.key}>
+              <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
               {s.label}
             </li>
           ))}
-          <li className="flex items-center gap-2 text-slate-400">
-            <span className="h-0 w-4 border-t-2 border-dashed border-slate-400" />
+          <li className="flex items-center gap-1 text-zinc-500">
+            <span className="h-0 w-4 border-t-2 border-dashed border-zinc-400" />
             Break-even
           </li>
         </ul>
@@ -146,33 +136,33 @@ export function Chart({ input, onPickUsers }: Props) {
         {/* grid + y labels */}
         {yTicks.map((v) => (
           <g key={v}>
-            <line stroke={v === 0 ? "#64748b" : "#1e293b"} strokeWidth={v === 0 ? 1.5 : 1} x1={PAD.l} x2={W - PAD.r} y1={yOf(v)} y2={yOf(v)} />
-            <line stroke="#94a3b8" x1={PAD.l - 6} x2={PAD.l} y1={yOf(v)} y2={yOf(v)} />
-            <text fill="#cbd5e1" fontSize="17" fontWeight="600" textAnchor="end" x={PAD.l - 12} y={yOf(v) + 6}>{compact(v)}</text>
+            <line stroke={v === 0 ? "#71717a" : "#e4e4e7"} strokeWidth={v === 0 ? 1.5 : 1} x1={PAD.l} x2={W - PAD.r} y1={yOf(v)} y2={yOf(v)} />
+            <line stroke="#a1a1aa" x1={PAD.l - 6} x2={PAD.l} y1={yOf(v)} y2={yOf(v)} />
+            <text fill="#52525b" fontSize="17" fontWeight="600" textAnchor="end" x={PAD.l - 12} y={yOf(v) + 6}>{compact(v)}</text>
           </g>
         ))}
         {/* x labels */}
         {xTicks.map((u) => (
           <g key={u}>
-            <line stroke="#1e293b" x1={xOf(u)} x2={xOf(u)} y1={PAD.t} y2={PAD.t + ih} />
-            <line stroke="#94a3b8" x1={xOf(u)} x2={xOf(u)} y1={PAD.t + ih} y2={PAD.t + ih + 6} />
-            <text fill="#cbd5e1" fontSize="17" fontWeight="600" textAnchor="middle" x={xOf(u)} y={PAD.t + ih + 26}>{compact(u)}</text>
+            <line stroke="#e4e4e7" x1={xOf(u)} x2={xOf(u)} y1={PAD.t} y2={PAD.t + ih} />
+            <line stroke="#a1a1aa" x1={xOf(u)} x2={xOf(u)} y1={PAD.t + ih} y2={PAD.t + ih + 6} />
+            <text fill="#52525b" fontSize="17" fontWeight="600" textAnchor="middle" x={xOf(u)} y={PAD.t + ih + 26}>{compact(u)}</text>
           </g>
         ))}
         {/* axis lines + titles */}
-        <line stroke="#94a3b8" strokeWidth="2" x1={PAD.l} x2={PAD.l} y1={PAD.t} y2={PAD.t + ih} />
-        <line stroke="#94a3b8" strokeWidth="2" x1={PAD.l} x2={W - PAD.r} y1={PAD.t + ih} y2={PAD.t + ih} />
-        <text fill="#94a3b8" fontSize="16" fontWeight="700" textAnchor="middle" x={PAD.l + iw / 2} y={H - 10}>USUÁRIOS (escala logarítmica)</text>
-        <text fill="#94a3b8" fontSize="16" fontWeight="700" textAnchor="middle" transform={`translate(22 ${PAD.t + ih / 2}) rotate(-90)`}>R$ POR MÊS</text>
+        <line stroke="#a1a1aa" strokeWidth="2" x1={PAD.l} x2={PAD.l} y1={PAD.t} y2={PAD.t + ih} />
+        <line stroke="#a1a1aa" strokeWidth="2" x1={PAD.l} x2={W - PAD.r} y1={PAD.t + ih} y2={PAD.t + ih} />
+        <text fill="#71717a" fontSize="16" fontWeight="700" textAnchor="middle" x={PAD.l + iw / 2} y={H - 10}>USUÁRIOS (escala logarítmica)</text>
+        <text fill="#71717a" fontSize="16" fontWeight="700" textAnchor="middle" transform={`translate(22 ${PAD.t + ih / 2}) rotate(-90)`}>R$ POR MÊS</text>
 
         {/* profit area */}
-        <path d={`${path("net")} L${xOf(points[points.length - 1].u).toFixed(1)},${yOf(0)} L${PAD.l},${yOf(0)} Z`} fill="#38bdf8" opacity="0.08" />
+        <path d={`${path("net")} L${xOf(points[points.length - 1].u).toFixed(1)},${yOf(0)} L${PAD.l},${yOf(0)} Z`} fill="#2563eb" opacity="0.07" />
 
         {/* break-even */}
         {beX !== null ? (
           <g style={{ transition: "transform .5s ease" }}>
-            <line stroke="#94a3b8" strokeDasharray="6 6" strokeWidth="1.5" x1={beX} x2={beX} y1={PAD.t} y2={PAD.t + ih} />
-            <text fill="#cbd5e1" fontSize="15" fontWeight="600" textAnchor="middle" x={beX} y={PAD.t - 10}>break-even {compact(out.breakEvenUsers!)}</text>
+            <line stroke="#71717a" strokeDasharray="6 6" strokeWidth="1.5" x1={beX} x2={beX} y1={PAD.t} y2={PAD.t + ih} />
+            <text fill="#52525b" fontSize="15" fontWeight="600" textAnchor="middle" x={beX} y={PAD.t - 10}>break-even {compact(out.breakEvenUsers!)}</text>
           </g>
         ) : null}
 
@@ -182,26 +172,26 @@ export function Chart({ input, onPickUsers }: Props) {
         ))}
 
         {/* current point */}
-        <line stroke="#34d399" strokeOpacity="0.5" strokeWidth="2" x1={curX} x2={curX} y1={PAD.t} y2={PAD.t + ih} style={{ transition: "x1 .4s ease, x2 .4s ease" }} />
+        <line stroke="#059669" strokeOpacity="0.5" strokeWidth="2" x1={curX} x2={curX} y1={PAD.t} y2={PAD.t + ih} style={{ transition: "x1 .4s ease, x2 .4s ease" }} />
         {SERIES.map((s) => (
-          <circle cx={curX} cy={yOf(out[s.key])} fill="#020617" key={s.key} r="7" stroke={s.color} strokeWidth="3" style={{ transition: "cx .4s ease, cy .4s ease" }} />
+          <circle cx={curX} cy={yOf(out[s.key])} fill="#fff" key={s.key} r="7" stroke={s.color} strokeWidth="3" style={{ transition: "cx .4s ease, cy .4s ease" }} />
         ))}
 
         {/* hover */}
         {hover && hovered ? (
           <g>
-            <line stroke="#e2e8f0" strokeOpacity="0.5" strokeWidth="1" x1={hx} x2={hx} y1={PAD.t} y2={PAD.t + ih} />
+            <line stroke="#3f3f46" strokeOpacity="0.5" strokeWidth="1" x1={hx} x2={hx} y1={PAD.t} y2={PAD.t + ih} />
             {SERIES.map((s) => <circle cx={hx} cy={yOf(hovered[s.key])} fill={s.color} key={s.key} r="5" />)}
             <foreignObject height="170" width="280" x={tooltipLeft ? hx + 14 : hx - 294} y={PAD.t + 4}>
-              <div className="rounded-xl bg-slate-950/95 px-3 py-2 text-base shadow-xl ring-1 ring-white/10">
-                <div className="mb-1 font-semibold text-white">{int.format(hover)} usuários</div>
+              <div className="rounded-lg bg-white px-3 py-2 text-sm shadow-lg ring-1 ring-zinc-200">
+                <div className="mb-1 font-semibold text-zinc-900">{int.format(hover)} usuários</div>
                 {SERIES.map((s) => (
                   <div className="flex items-center justify-between gap-4" key={s.key}>
-                    <span className="flex items-center gap-1.5 text-slate-400"><span className="h-2 w-2 rounded-full" style={{ background: s.color }} />{s.label}</span>
+                    <span className="flex items-center gap-1.5 text-zinc-500"><span className="h-2 w-2 rounded-full" style={{ background: s.color }} />{s.label}</span>
                     <span className="font-mono tabular-nums" style={{ color: s.color }}>{brl.format(hovered[s.key])}</span>
                   </div>
                 ))}
-                <div className="mt-1 text-sm text-slate-500">clique para simular aqui</div>
+                <div className="mt-1 text-xs text-zinc-400">clique para simular aqui</div>
               </div>
             </foreignObject>
           </g>

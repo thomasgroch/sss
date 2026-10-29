@@ -4,70 +4,38 @@ import { Chart } from "./Chart";
 import { DEFAULTS, LIMITS, type SimInput, clamp, simulate, sliderToUsers, usersToSlider } from "./sim";
 
 // ---------- formatting ----------
-
-const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-const int = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
-const pct = (v: number) => `${v.toFixed(1).replace(".", ",")}%`;
-
-function compactBrl(n: number): string {
-  return `R$ ${compact(n)}`;
-}
-
-function compact(n: number): string {
-  const abs = Math.abs(n);
-  if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1).replace(".", ",")}M`;
-  if (abs >= 1_000) return `${(n / 1_000).toFixed(abs >= 10_000 ? 0 : 1).replace(".", ",")}k`;
+export const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+export const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+export const int = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
+export function compact(n: number): string {
+  const a = Math.abs(n), sign = n < 0 ? "-" : "";
+  if (a >= 1e6) return `${sign}${(a / 1e6).toFixed(a >= 1e7 ? 0 : 1).replace(".", ",")}M`;
+  if (a >= 1e3) return `${sign}${(a / 1e3).toFixed(a >= 1e4 ? 0 : 1).replace(".", ",")}k`;
   return int.format(n);
 }
 
-// ---------- motion hooks ----------
-
-function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(() => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const handler = (e: MediaQueryListEvent) => setReduced(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-  return reduced;
-}
-
-/** Tweens a number toward `target` so results visibly "roll" into place. */
-function useAnimatedNumber(target: number, duration = 480): number {
-  const reduced = usePrefersReducedMotion();
+// ---------- motion ----------
+/** Tweens toward `target` so numbers visibly roll into place. */
+function useAnimatedNumber(target: number, duration = 450): number {
   const [display, setDisplay] = useState(target);
-  const fromRef = useRef(target);
-  const frame = useRef(0);
-
+  const from = useRef(target);
   useEffect(() => {
-    if (reduced) {
-      setDisplay(target);
-      fromRef.current = target;
-      return;
-    }
-    const from = fromRef.current;
-    if (from === target) return;
-    const start = performance.now();
-    cancelAnimationFrame(frame.current);
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) { from.current = target; setDisplay(target); return; }
+    const start = performance.now(), begin = from.current;
+    let frame = 0;
     const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
-      const value = from + (target - from) * eased;
-      fromRef.current = value;
-      setDisplay(value);
-      if (t < 1) frame.current = requestAnimationFrame(tick);
-      else fromRef.current = target;
+      const t = Math.min(1, (now - start) / duration), e = 1 - Math.pow(1 - t, 3);
+      from.current = begin + (target - begin) * e;
+      setDisplay(from.current);
+      if (t < 1) frame = requestAnimationFrame(tick);
     };
-    frame.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame.current);
-  }, [target, duration, reduced]);
-
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [target, duration]);
   return display;
 }
 
-/** Returns "up" | "down" | null for ~600ms after `value` changes, to tint the card. */
+/** "up" | "down" for ~600ms after a change, to tint the card. */
 function useChangeDirection(value: number): "up" | "down" | null {
   const prev = useRef(value);
   const [dir, setDir] = useState<"up" | "down" | null>(null);
@@ -75,338 +43,193 @@ function useChangeDirection(value: number): "up" | "down" | null {
     if (value === prev.current) return;
     setDir(value > prev.current ? "up" : "down");
     prev.current = value;
-    const id = setTimeout(() => setDir(null), 650);
+    const id = setTimeout(() => setDir(null), 600);
     return () => clearTimeout(id);
   }, [value]);
   return dir;
 }
 
-// ---------- two-way bound control ----------
-
-interface ControlProps {
-  label: string;
-  emoji: string;
-  value: number;
-  onChange: (v: number) => void;
-  min: number;
-  max: number;
-  step: number;
-  format: (v: number) => string;
-  hint?: string;
-  prefix?: string;
-  suffix?: string;
-  /** maps slider position <-> value (for log scale) */
-  toSlider?: (v: number) => number;
-  fromSlider?: (p: number) => number;
-  sliderMax?: number;
-  tone: Tone;
-}
-
-/** Visual group colors. Borders stay transparent so nothing shifts when a state changes. */
-type Tone = "revenue" | "costs" | "results";
-const TONES: Record<Tone, { heading: string; card: string; cardActive: string; value: string; fill: string; dot: string }> = {
-  revenue: { heading: "text-emerald-300", card: "", cardActive: "focus-within:border-emerald-400/60", value: "text-emerald-300", fill: "#34d399", dot: "bg-emerald-400" },
-  costs: { heading: "text-amber-300", card: "", cardActive: "focus-within:border-amber-400/60", value: "text-amber-300", fill: "#fbbf24", dot: "bg-amber-400" },
-  results: { heading: "text-sky-300", card: "", cardActive: "focus-within:border-sky-400/60", value: "text-sky-300", fill: "#38bdf8", dot: "bg-sky-400" }
-};
-
-function Control(p: ControlProps) {
-  const t = TONES[p.tone];
+// ---------- editable number (shared by controls and the fx chip) ----------
+function NumberField({ value, onChange, min, max, format, label, className = "" }: {
+  value: number; onChange: (v: number) => void; min: number; max: number; format: (v: number) => string; label: string; className?: string;
+}) {
   const [draft, setDraft] = useState<string | null>(null);
-  const sliderValue = p.toSlider ? p.toSlider(p.value) : p.value;
-  const sliderMax = p.sliderMax ?? p.max;
-  const sliderMin = p.toSlider ? 0 : p.min;
-  const fill = ((sliderValue - sliderMin) / (sliderMax - sliderMin)) * 100;
-
   const commit = (raw: string) => {
     const n = parseFloat(raw.replace(",", "."));
-    if (!Number.isNaN(n)) p.onChange(clamp(n, p.min, p.max));
+    if (!Number.isNaN(n)) onChange(clamp(n, min, max));
     setDraft(null);
   };
-
   return (
-    <label className={`group block rounded-xl border border-transparent ${t.card} px-3 py-2 transition-colors duration-300 ${t.cardActive}`}>
-      <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <span className="flex items-center gap-2 text-base font-semibold text-slate-100">
-          <span aria-hidden="true">{p.emoji}</span>
-          {p.label}
-        </span>
-        <span className={`flex items-center gap-1 rounded-lg border border-transparent bg-slate-950/80 px-2 py-1 font-mono text-base font-semibold ${t.value} transition-colors duration-200 focus-within:bg-slate-950`}>
-          {p.prefix ? <span className="text-slate-500">{p.prefix}</span> : null}
-          <input
-            aria-label={`${p.label} (valor)`}
-            className="w-24 min-w-0 bg-transparent text-right tabular-nums outline-none"
-            inputMode="decimal"
-            type="text"
-            value={draft ?? p.format(p.value)}
-            onFocus={() => setDraft(String(p.value))}
-            onInput={(e) => setDraft((e.currentTarget as HTMLInputElement).value)}
-            onBlur={(e) => commit((e.currentTarget as HTMLInputElement).value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
-              if (e.key === "Escape") setDraft(null);
-            }}
-          />
-          {p.suffix ? <span className="text-slate-500">{p.suffix}</span> : null}
+    <input
+      aria-label={label}
+      className={`min-w-0 bg-transparent text-right font-mono font-semibold tabular-nums outline-none ${className}`}
+      inputMode="decimal"
+      type="text"
+      value={draft ?? format(value)}
+      onFocus={() => setDraft(String(value))}
+      onInput={(e) => setDraft((e.currentTarget as HTMLInputElement).value)}
+      onBlur={(e) => commit((e.currentTarget as HTMLInputElement).value)}
+      onKeyDown={(e) => { if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur(); if (e.key === "Escape") setDraft(null); }}
+    />
+  );
+}
+
+// ---------- slider + field, two-way bound ----------
+type Tone = "revenue" | "costs";
+const ACCENT: Record<Tone, string> = { revenue: "#059669", costs: "#d97706" };
+
+function Control(p: {
+  tone: Tone; emoji: string; label: string; value: number; onChange: (v: number) => void;
+  min: number; max: number; step: number; format: (v: number) => string; hint: string; prefix?: string; suffix?: string;
+  toSlider?: (v: number) => number; fromSlider?: (p: number) => number; sliderMax?: number;
+}) {
+  const sv = p.toSlider ? p.toSlider(p.value) : p.value;
+  const smin = p.toSlider ? 0 : p.min, smax = p.sliderMax ?? p.max;
+  const fill = ((sv - smin) / (smax - smin)) * 100;
+  return (
+    <label className="block rounded-lg border border-transparent px-2 py-1.5 transition-colors focus-within:border-current/20" style={{ color: ACCENT[p.tone] }}>
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-zinc-800">
+        <span className="font-semibold"><span aria-hidden="true">{p.emoji}</span> {p.label}</span>
+        <span className="flex items-center gap-1 rounded-md bg-white px-2 py-0.5 shadow-sm ring-1 ring-zinc-200">
+          {p.prefix ? <span className="text-sm text-zinc-400">{p.prefix}</span> : null}
+          <NumberField className="w-20" format={p.format} label={`${p.label} (valor)`} max={p.max} min={p.min} value={p.value} onChange={p.onChange} />
+          {p.suffix ? <span className="text-sm text-zinc-400">{p.suffix}</span> : null}
         </span>
       </div>
       <input
-        aria-label={p.label}
-        className="range w-full"
-        max={sliderMax}
-        min={sliderMin}
-        step={p.toSlider ? 1 : p.step}
-        style={{ "--fill": `${fill}%`, "--accent": t.fill } as JSX.CSSProperties}
-        type="range"
-        value={sliderValue}
-        onInput={(e) => {
-          const pos = parseFloat((e.currentTarget as HTMLInputElement).value);
-          p.onChange(p.fromSlider ? p.fromSlider(pos) : pos);
-        }}
+        aria-label={p.label} className="range w-full" max={smax} min={smin} step={p.toSlider ? 1 : p.step} type="range" value={sv}
+        style={{ "--fill": `${fill}%` } as JSX.CSSProperties}
+        onInput={(e) => { const v = parseFloat((e.currentTarget as HTMLInputElement).value); p.onChange(p.fromSlider ? p.fromSlider(v) : v); }}
       />
-      {p.hint ? <p className="mt-1.5 text-sm leading-snug text-slate-400">{p.hint}</p> : null}
+      <p className="mt-1 text-xs leading-snug text-zinc-500">{p.hint}</p>
     </label>
   );
 }
 
-// ---------- result cards ----------
-
-interface MetricProps {
-  label: string;
-  emoji: string;
-  value: number; // BRL
-  usd?: number; // optional secondary value
-  format?: (v: number) => string;
-  sub?: string;
-  big?: boolean;
-  signed?: boolean;
-  delay?: number;
-}
-
-function Metric(m: MetricProps) {
-  const animated = useAnimatedNumber(m.value);
-  const animatedUsd = useAnimatedNumber(m.usd ?? 0);
-  const dir = useChangeDirection(m.value);
-  const negative = m.signed && m.value < 0;
-  const fmt = m.format ?? ((v: number) => brl.format(v));
-  const tint =
-    dir === "up" ? "border-emerald-500/60 shadow-[0_0_0_4px_rgba(16,185,129,0.12)]"
-    : dir === "down" ? "border-rose-500/60 shadow-[0_0_0_4px_rgba(244,63,94,0.12)]"
-    : "border-transparent";
+// ---------- result card ----------
+function Metric(m: { emoji: string; label: string; value: number; usd?: number; sub?: string; signed?: boolean }) {
+  const v = useAnimatedNumber(m.value), u = useAnimatedNumber(m.usd ?? 0), dir = useChangeDirection(m.value);
+  const ring = dir === "up" ? "border-emerald-400" : dir === "down" ? "border-rose-400" : "border-transparent";
   return (
-    <div
-      className={`relative overflow-hidden rounded-xl border px-3 py-2 transition-[border-color,box-shadow] duration-500 ease-out ${tint} `}
-      style={{ transitionDelay: `${m.delay ?? 0}ms` }}
-    >
-      <div className="mb-0.5 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-sky-300/90">
-        <span aria-hidden="true">{m.emoji}</span>
-        {m.label}
-        {dir ? (
-          <span aria-hidden="true" className={`ml-auto text-sm ${dir === "up" ? "text-emerald-400" : "text-rose-400"}`}>
-            {dir === "up" ? "▲" : "▼"}
-          </span>
-        ) : null}
+    <div className={`rounded-lg border-2 px-2 py-1 transition-colors duration-500 ${ring}`}>
+      <div className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+        <span aria-hidden="true">{m.emoji}</span>{m.label}
+        {dir ? <span className={`ml-auto ${dir === "up" ? "text-emerald-600" : "text-rose-600"}`}>{dir === "up" ? "▲" : "▼"}</span> : null}
       </div>
-      <div
-        aria-live="polite"
-        className={`min-w-0 whitespace-nowrap font-mono tabular-nums tracking-tight leading-tight transition-colors duration-500 ${m.big ? "text-[clamp(1.75rem,2.6vw,3rem)]" : "text-[clamp(1.35rem,1.9vw,2.25rem)]"} ${negative ? "text-rose-300" : "text-white"}`}
-      >
-        {fmt(animated)}
-      </div>
-      {m.usd !== undefined ? (
-        <div className="font-mono text-sm tabular-nums text-slate-400">{usd.format(animatedUsd)}</div>
-      ) : null}
-      {m.sub ? <div className="text-sm text-slate-400">{m.sub}</div> : null}
+      <div className={`whitespace-nowrap font-mono text-[clamp(1.4rem,2vw,2.2rem)] font-bold leading-tight tabular-nums ${m.signed && m.value < 0 ? "text-rose-600" : "text-zinc-900"}`}>{brl.format(v)}</div>
+      {m.usd !== undefined ? <div className="font-mono text-xs tabular-nums text-zinc-400">{usd.format(u)}</div> : null}
+      {m.sub ? <div className="text-xs text-zinc-500">{m.sub}</div> : null}
     </div>
   );
 }
 
-/** Stacked bar: where each real of revenue goes. Widths animate with CSS. */
+// ---------- where each real goes ----------
 function Breakdown({ mrr, fixed, variable, net }: { mrr: number; fixed: number; variable: number; net: number }) {
-  const total = Math.max(mrr, fixed + variable, 1);
-  const w = (v: number) => `${Math.max(0, (v / total) * 100)}%`;
-  const seg = "h-full transition-[width] duration-500 ease-out";
-  const overspend = net < 0;
+  const total = Math.max(mrr, fixed + variable, 1), w = (v: number) => `${Math.max(0, (v / total) * 100)}%`;
+  const loss = net < 0;
+  const parts = [
+    { label: "Fixos", value: fixed, color: "#d97706" },
+    { label: "Variáveis", value: variable, color: "#7c3aed" },
+    { label: "Lucro", value: net, color: loss ? "#e11d48" : "#059669" }
+  ];
   return (
-    <div className="rounded-xl border border-transparent px-3 py-2">
-      <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-sm font-semibold uppercase tracking-wide text-sky-300/90">
+    <div className="px-2 py-1">
+      <div className="mb-1 flex justify-between text-xs font-semibold uppercase tracking-wide text-zinc-500">
         <span>🧮 Para onde vai cada real</span>
-        <span className={`transition-colors duration-500 ${overspend ? "text-rose-400" : "text-emerald-400"}`}>
-          {overspend ? "custos acima da receita" : "operação rentável"}
-        </span>
+        <span className={loss ? "text-rose-600" : "text-emerald-600"}>{loss ? "custos acima da receita" : "rentável"}</span>
       </div>
-      <div className="flex h-4 w-full overflow-hidden rounded-full bg-slate-900">
-        <div className={`${seg} bg-amber-400`} style={{ width: w(fixed) }} title="Custos fixos" />
-        <div className={`${seg} bg-sky-400`} style={{ width: w(variable) }} title="Custos variáveis" />
-        <div className={`${seg} ${overspend ? "bg-rose-500" : "bg-emerald-400"}`} style={{ width: w(Math.max(0, net)) }} title="Lucro" />
+      <div className="flex h-3 overflow-hidden rounded-full bg-zinc-200">
+        {parts.map((p) => <div className="transition-[width] duration-500" key={p.label} style={{ width: w(Math.max(0, p.value)), background: p.color }} />)}
       </div>
-      <ul className="mt-1.5 grid grid-cols-3 gap-x-3 text-sm text-slate-300">
-        <Legend color="bg-amber-400" label="Fixos" value={fixed} />
-        <Legend color="bg-sky-400" label="Variáveis" value={variable} />
-        <Legend color={overspend ? "bg-rose-500" : "bg-emerald-400"} label="Lucro" value={net} />
+      <ul className="mt-1 grid grid-cols-3 gap-x-3 text-xs text-zinc-600">
+        {parts.map((p) => (
+          <li className="flex items-center gap-1" key={p.label}>
+            <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />{p.label}
+            <span className="ml-auto font-mono font-semibold tabular-nums text-zinc-800">R$ {compact(p.value)}</span>
+          </li>
+        ))}
       </ul>
     </div>
   );
 }
 
-function Legend({ color, label, value }: { color: string; label: string; value: number }) {
-  const animated = useAnimatedNumber(value);
-  return (
-    <li className="flex items-center gap-2">
-      <span className={`h-3 w-3 rounded-full ${color} transition-colors duration-500`} />
-      <span>{label}</span>
-      <span className="ml-auto font-mono tabular-nums text-white">{compactBrl(animated)}</span>
-    </li>
-  );
-}
-
 // ---------- presets ----------
-
 const PRESETS: { name: string; emoji: string; patch: Partial<SimInput> }[] = [
-  { name: "Indie Solo", emoji: "🌱", patch: { users: 800, conversion: 4, priceUsd: 9, fixedCostsBrl: 1_500, variablePct: 10 } },
-  { name: "Indie Pro", emoji: "🧑‍💻", patch: { users: 5_000, conversion: 5, priceUsd: 15, fixedCostsBrl: 8_000, variablePct: 10 } },
-  { name: "Startup", emoji: "🚀", patch: { users: 25_000, conversion: 5, priceUsd: 19, fixedCostsBrl: 60_000, variablePct: 12 } },
-  { name: "Multitenancy", emoji: "🏢", patch: { users: 500_000, conversion: 2.5, priceUsd: 29, fixedCostsBrl: 600_000, variablePct: 8 } }
+  { name: "Indie Solo", emoji: "🌱", patch: { users: 800, conversion: 4, priceBrl: 49, fixedCostsBrl: 1_500, variablePct: 10 } },
+  { name: "Indie Pro", emoji: "🧑‍💻", patch: { users: 5_000, conversion: 5, priceBrl: 79, fixedCostsBrl: 8_000, variablePct: 10 } },
+  { name: "Startup", emoji: "🚀", patch: { users: 25_000, conversion: 5, priceBrl: 99, fixedCostsBrl: 60_000, variablePct: 12 } },
+  { name: "Multitenancy", emoji: "🏢", patch: { users: 500_000, conversion: 2.5, priceBrl: 149, fixedCostsBrl: 600_000, variablePct: 8 } }
 ];
 
+const btn = "rounded-full border border-transparent bg-white px-3 py-1 text-sm font-medium text-zinc-700 shadow-sm ring-1 ring-zinc-200 transition-colors hover:bg-zinc-50 focus-visible:border-zinc-400 focus-visible:outline-none";
+const panel = "rounded-xl p-1.5 sm:p-2";
+const h2 = "flex items-center gap-1.5 px-2 text-xs font-bold uppercase tracking-widest";
+
 // ---------- app ----------
-
-/** Small inline editor for the exchange rate: secondary setting, rarely changed. */
-function FxChip({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const [draft, setDraft] = useState<string | null>(null);
-  const commit = (raw: string) => {
-    const n = parseFloat(raw.replace(",", "."));
-    if (!Number.isNaN(n)) onChange(clamp(n, LIMITS.fx.min, LIMITS.fx.max));
-    setDraft(null);
-  };
-  return (
-    <label className="flex items-center gap-1.5 rounded-full border border-transparent bg-slate-900 px-3 py-1 text-sm text-slate-300 transition-colors duration-200 focus-within:border-slate-500 hover:bg-slate-800">
-      <span aria-hidden="true">💱</span>
-      <span>US$ 1 =</span>
-      <span className="text-slate-500">R$</span>
-      <input
-        aria-label="Câmbio (reais por dólar)"
-        className="w-12 bg-transparent font-mono tabular-nums text-slate-200 outline-none"
-        inputMode="decimal"
-        type="text"
-        value={draft ?? value.toFixed(2).replace(".", ",")}
-        onFocus={() => setDraft(String(value))}
-        onInput={(e) => setDraft((e.currentTarget as HTMLInputElement).value)}
-        onBlur={(e) => commit((e.currentTarget as HTMLInputElement).value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
-          if (e.key === "Escape") setDraft(null);
-        }}
-      />
-    </label>
-  );
-}
-
 export function App() {
   const [input, setInput] = useState<SimInput>(DEFAULTS);
-  const set = <K extends keyof SimInput>(key: K) => (v: SimInput[K]) => setInput((prev) => ({ ...prev, [key]: v }));
-
-  // Computed properties: every result derives from `input`, recomputed instantly.
+  const set = <K extends keyof SimInput>(k: K) => (v: SimInput[K]) => setInput((p) => ({ ...p, [k]: v }));
   const out = useMemo(() => simulate(input), [input]);
-  const status = useMemo(() => {
-    if (out.net >= 0) return { tone: "text-emerald-400", text: `✅ Rentável: margem de ${pct(out.margin)} sobre a receita` };
-    if (out.breakEvenUsers) return { tone: "text-amber-400", text: `⚠️ Prejuízo. Break-even com ${int.format(out.breakEvenUsers)} usuários (${compact(out.breakEvenUsers)})` };
-    return { tone: "text-rose-400", text: "🚫 Sem break-even: custos variáveis consomem toda a receita" };
-  }, [out.net, out.margin, out.breakEvenUsers]);
+  const status = out.net >= 0
+    ? { cls: "text-emerald-700", text: `✅ Rentável: margem de ${out.margin.toFixed(1).replace(".", ",")}% sobre a receita` }
+    : out.breakEvenUsers
+      ? { cls: "text-amber-700", text: `⚠️ Prejuízo. Break-even com ${int.format(out.breakEvenUsers)} usuários` }
+      : { cls: "text-rose-700", text: "🚫 Sem break-even: custos variáveis consomem toda a receita" };
 
   return (
-    <main className="bg-slate-950 px-3 py-2 text-white lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden lg:px-4">
+    <main className="flex flex-col gap-1.5 bg-zinc-100 p-1.5 text-zinc-900 sm:p-2 lg:h-dvh lg:overflow-hidden">
+      <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
+        <h1 className="text-lg font-extrabold tracking-tight sm:text-xl">💰 SaaS Subscription Simulator</h1>
+        <div className="flex flex-wrap items-center gap-1">
+          {PRESETS.map((p) => <button className={btn} key={p.name} type="button" onClick={() => setInput((prev) => ({ ...prev, ...p.patch }))}>{p.emoji} {p.name}</button>)}
+          <button className={`${btn} text-zinc-400`} type="button" onClick={() => setInput(DEFAULTS)}>↺ Reset</button>
+          <label className={`${btn} flex items-center gap-1 text-zinc-500`}>
+            <span aria-hidden="true">💱</span> US$ 1 = R$
+            <NumberField className="w-10 text-zinc-800" format={(v) => v.toFixed(2).replace(".", ",")} label="Câmbio (reais por dólar)" max={LIMITS.fx.max} min={LIMITS.fx.min} value={input.fx} onChange={set("fx")} />
+          </label>
+        </div>
+      </header>
 
-      <div className="flex w-full flex-col gap-2 lg:min-h-0 lg:flex-1">
-        <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-          <div>
-            <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">💰 SaaS Subscription Simulator</h1>
-            <p className="hidden text-sm text-slate-400 xl:block">Cinco parâmetros, resultado em reais na hora. Nada é salvo.</p>
+      <section aria-label="Resultados" className={`${panel} flex flex-col gap-1 bg-white shadow-sm lg:min-h-0 lg:flex-1`}>
+        <h2 className={`${h2} text-zinc-500`}><span className="h-2 w-2 rounded-full bg-zinc-400" />Resultados</h2>
+        <div className="grid gap-1 sm:grid-cols-2 xl:grid-cols-5">
+          <Metric emoji="📈" label="Receita mensal" value={out.mrr} usd={out.mrrUsd} sub={`${int.format(out.payingUsers)} pagantes × ${brl.format(out.priceBrl)}`} />
+          <Metric emoji="🗓️" label="Receita anual" value={out.arr} usd={out.arrUsd} />
+          <Metric emoji="💸" label="Custos mensais" value={out.totalCosts} sub={`${brl.format(input.fixedCostsBrl)} fixos + ${brl.format(out.variableCosts)} variáveis`} />
+          <Metric emoji="🧾" label="Lucro mensal" value={out.net} usd={out.netUsd} signed />
+          <Metric emoji="🏆" label="Lucro anual" value={out.netAnnual} usd={out.netAnnualUsd} signed />
+        </div>
+        <div className="grid gap-1 lg:min-h-0 lg:flex-1 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+          <Chart input={input} onPickUsers={set("users")} />
+          <div className="flex flex-col justify-center gap-1 lg:min-h-0">
+            <Breakdown fixed={input.fixedCostsBrl} mrr={out.mrr} net={out.net} variable={out.variableCosts} />
+            <p aria-live="polite" className={`px-2 text-sm font-semibold transition-colors ${status.cls}`}>{status.text}</p>
+            <p className="px-2 text-xs text-zinc-400">Estimativa simplificada: sem churn, impostos ou crescimento mês a mês.</p>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {PRESETS.map((pr) => (
-              <button
-                className="rounded-full border border-transparent bg-slate-900 px-3 py-1 text-sm text-slate-200 transition-colors duration-200 hover:bg-slate-800 hover:text-white focus-visible:border-slate-500 focus-visible:outline-none"
-                key={pr.name}
-                type="button"
-                onClick={() => setInput((prev) => ({ ...prev, ...pr.patch }))}
-              >
-                {pr.emoji} {pr.name}
-              </button>
-            ))}
-            <button
-              className="rounded-full border border-transparent bg-slate-900/60 px-3 py-1 text-sm text-slate-400 transition-colors duration-200 hover:bg-slate-800 hover:text-slate-300 focus-visible:border-slate-500 focus-visible:outline-none"
-              type="button"
-              onClick={() => setInput(DEFAULTS)}
-            >
-              ↺ Reset
-            </button>
-            <FxChip value={input.fx} onChange={set("fx")} />
-          </div>
-        </header>
+        </div>
+      </section>
 
-        {/* ---- results: full width ---- */}
-        <section aria-label="Resultados" className="flex flex-col gap-2 rounded-2xl bg-sky-950/40 p-2 ring-1 ring-sky-400/10 sm:p-3 lg:min-h-0 lg:flex-1">
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-            <h2 className="flex items-center gap-2 px-1 text-sm font-bold uppercase tracking-widest text-sky-300 sm:col-span-2 xl:col-span-5"><span className="h-2.5 w-2.5 rounded-full bg-sky-400" />Resultados</h2>
-            <Metric big emoji="📈" label="Receita mensal" value={out.mrr} usd={out.mrrUsd} sub={`${int.format(out.payingUsers)} clientes pagantes × ${brl.format(out.priceBrl)}`} />
-            <Metric emoji="🗓️" label="Receita anual" value={out.arr} usd={out.arrUsd} delay={40} />
-            <Metric emoji="💸" label="Custos mensais" value={out.totalCosts} delay={80} sub={`${brl.format(input.fixedCostsBrl)} fixos + ${brl.format(out.variableCosts)} variáveis`} />
-            <Metric emoji="🧾" label="Lucro mensal" value={out.net} usd={out.netUsd} signed delay={120} />
-            <Metric emoji="🏆" label="Lucro anual" value={out.netAnnual} usd={out.netAnnualUsd} signed delay={160} />
-          </div>
-
-          <div className="grid gap-2 lg:min-h-0 lg:flex-1 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-            <Chart input={input} onPickUsers={set("users")} />
-            <div className="flex flex-col justify-center gap-2 lg:min-h-0">
-              <Breakdown mrr={out.mrr} fixed={input.fixedCostsBrl} variable={out.variableCosts} net={out.net} />
-              <p aria-live="polite" className={`px-3 text-base font-semibold transition-colors duration-500 ${status.tone}`}>{status.text}</p>
-              <p className="px-3 text-xs text-slate-500">Estimativa simplificada: sem churn, impostos ou crescimento mês a mês.</p>
-            </div>
+      <div className="grid gap-1.5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <section aria-label="Receita" className={`${panel} bg-emerald-50`}>
+          <h2 className={`${h2} text-emerald-700`}><span className="h-2 w-2 rounded-full bg-emerald-500" />Receita</h2>
+          <div className="grid md:grid-cols-3">
+            <Control tone="revenue" emoji="👥" label="Usuários" value={input.users} onChange={set("users")} min={LIMITS.users.min} max={LIMITS.users.max} step={1}
+              toSlider={usersToSlider} fromSlider={sliderToUsers} sliderMax={1000} format={(v) => int.format(v)} hint="Base total, de 100 a 1 milhão (escala logarítmica)." />
+            <Control tone="revenue" emoji="💳" label="Conversão" value={input.conversion} onChange={set("conversion")} min={LIMITS.conversion.min} max={LIMITS.conversion.max} step={LIMITS.conversion.step}
+              format={(v) => v.toFixed(1).replace(".", ",")} suffix="%" hint="Quantos da base pagam. Freemium costuma ficar entre 2% e 5%." />
+            <Control tone="revenue" emoji="💵" label="Preço mensal" value={input.priceBrl} onChange={set("priceBrl")} min={LIMITS.priceBrl.min} max={LIMITS.priceBrl.max} step={LIMITS.priceBrl.step}
+              format={(v) => int.format(v)} prefix="R$" suffix="/mês" hint={`Por assinante. Equivale a ${usd.format(input.priceBrl / input.fx)}.`} />
           </div>
         </section>
-
-        {/* ---- controls: below, two colored panels ---- */}
-        <div className="grid gap-2 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          <section aria-label="Receita" className="rounded-2xl bg-emerald-950/40 p-2 ring-1 ring-emerald-400/10 sm:p-3">
-            <h2 className="mb-1 flex items-center gap-2 px-1 text-sm font-bold uppercase tracking-widest text-emerald-300"><span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />Receita</h2>
-            <div className="grid gap-2 md:grid-cols-3">
-              <Control
-                tone="revenue" emoji="👥" label="Usuários" value={input.users} onChange={set("users")}
-                min={LIMITS.users.min} max={LIMITS.users.max} step={1}
-                toSlider={usersToSlider} fromSlider={sliderToUsers} sliderMax={1000}
-                format={(v) => int.format(v)} hint="Base total, de 100 a 1 milhão (escala logarítmica)."
-              />
-              <Control
-                tone="revenue" emoji="💳" label="Conversão" value={input.conversion} onChange={set("conversion")}
-                min={LIMITS.conversion.min} max={LIMITS.conversion.max} step={LIMITS.conversion.step}
-                format={(v) => v.toFixed(1)} suffix="%" hint="Quantos da base pagam. Freemium costuma ficar entre 2% e 5%."
-              />
-              <Control
-                tone="revenue" emoji="💵" label="Preço mensal" value={input.priceUsd} onChange={set("priceUsd")}
-                min={LIMITS.priceUsd.min} max={LIMITS.priceUsd.max} step={LIMITS.priceUsd.step}
-                format={(v) => v.toFixed(0)} prefix="US$" hint={`Equivale a ${brl.format(out.priceBrl)} por assinante.`}
-              />
-            </div>
-          </section>
-
-          <section aria-label="Custos" className="rounded-2xl bg-amber-950/30 p-2 ring-1 ring-amber-400/10 sm:p-3">
-            <h2 className="mb-1 flex items-center gap-2 px-1 text-sm font-bold uppercase tracking-widest text-amber-300"><span className="h-2.5 w-2.5 rounded-full bg-amber-400" />Custos</h2>
-            <div className="grid gap-2 md:grid-cols-2">
-              <Control
-                tone="costs" emoji="🏗️" label="Custos fixos" value={input.fixedCostsBrl} onChange={set("fixedCostsBrl")}
-                min={LIMITS.fixedCostsBrl.min} max={LIMITS.fixedCostsBrl.max} step={LIMITS.fixedCostsBrl.step}
-                format={(v) => int.format(v)} prefix="R$" suffix="/mês" hint="Equipe, ferramentas e marketing: não mudam com o número de usuários."
-              />
-              <Control
-                tone="costs" emoji="☁️" label="Custos variáveis" value={input.variablePct} onChange={set("variablePct")}
-                min={LIMITS.variablePct.min} max={LIMITS.variablePct.max} step={LIMITS.variablePct.step}
-                format={(v) => v.toFixed(0)} suffix="%" hint="Taxas de pagamento, infra e suporte que crescem junto com a receita. Típico: 10% a 20%."
-              />
-            </div>
-          </section>
-        </div>
-
+        <section aria-label="Custos" className={`${panel} bg-amber-50`}>
+          <h2 className={`${h2} text-amber-700`}><span className="h-2 w-2 rounded-full bg-amber-500" />Custos</h2>
+          <div className="grid md:grid-cols-2">
+            <Control tone="costs" emoji="🏗️" label="Custos fixos" value={input.fixedCostsBrl} onChange={set("fixedCostsBrl")} min={LIMITS.fixedCostsBrl.min} max={LIMITS.fixedCostsBrl.max} step={LIMITS.fixedCostsBrl.step}
+              format={(v) => int.format(v)} prefix="R$" suffix="/mês" hint="Equipe, ferramentas e marketing: não mudam com o número de usuários." />
+            <Control tone="costs" emoji="☁️" label="Custos variáveis" value={input.variablePct} onChange={set("variablePct")} min={LIMITS.variablePct.min} max={LIMITS.variablePct.max} step={LIMITS.variablePct.step}
+              format={(v) => v.toFixed(0)} suffix="% da receita" hint="Taxas de pagamento, infra e suporte que crescem com a receita. Típico: 10% a 20%." />
+          </div>
+        </section>
       </div>
     </main>
   );
