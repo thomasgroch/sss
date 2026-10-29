@@ -154,7 +154,7 @@ export function Chart({ input, hover, onHover, onPickUsers }: Props) {
         {/* axis lines + titles */}
         <line stroke="#a1a1aa" strokeWidth="2" x1={PAD.l} x2={PAD.l} y1={PAD.t} y2={PAD.t + ih} />
         <line stroke="#a1a1aa" strokeWidth="2" x1={PAD.l} x2={W - PAD.r} y1={PAD.t + ih} y2={PAD.t + ih} />
-        <text fill="#71717a" fontSize="16" fontWeight="700" textAnchor="middle" x={PAD.l + iw / 2} y={H - 10}>USUÁRIOS (escala logarítmica)</text>
+        <text fill="#71717a" fontSize="16" fontWeight="700" textAnchor="middle" x={PAD.l + iw / 2} y={H - 10}>USUÁRIOS NA BASE (escala logarítmica)</text>
         <text fill="#71717a" fontSize="16" fontWeight="700" textAnchor="middle" transform={`translate(22 ${PAD.t + ih / 2}) rotate(-90)`}>R$ POR MÊS</text>
 
         {/* profit area */}
@@ -186,7 +186,7 @@ export function Chart({ input, hover, onHover, onPickUsers }: Props) {
             {SERIES.map((s) => <circle cx={hx} cy={yOf(hovered[s.key])} fill={s.color} key={s.key} r="5" />)}
             <foreignObject height="170" width="280" x={tooltipLeft ? hx + 14 : hx - 294} y={PAD.t + 4}>
               <div className="rounded-lg bg-white px-3 py-2 text-sm shadow-lg ring-1 ring-zinc-200">
-                <div className="mb-1 font-semibold text-zinc-900">{int.format(hover)} usuários</div>
+                <div className="mb-1 font-semibold text-zinc-900">{int.format(hover)} usuários na base</div>
                 {SERIES.map((s) => (
                   <div className="flex items-center justify-between gap-4" key={s.key}>
                     <span className="flex items-center gap-1.5 text-zinc-500"><span className="h-2 w-2 rounded-full" style={{ background: s.color }} />{s.label}</span>

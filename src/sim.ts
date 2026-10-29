@@ -2,7 +2,7 @@
 
 export interface SimInput {
   users: number; // 100 .. 1_000_000
-  conversion: number; // % of paying users
+  freePct: number; // % of the base on a free tier (not paying); 0 = no free tier, everyone pays
   priceBrl: number; // BRL per month per subscriber
   fx: number; // BRL per USD, only for the secondary USD figures
   fixedCostsBrl: number; // BRL per month: team, tools, marketing
@@ -30,7 +30,7 @@ export interface SimOutput {
 
 export const LIMITS = {
   users: { min: 100, max: 1_000_000 },
-  conversion: { min: 0.1, max: 100, step: 0.1 },
+  freePct: { min: 0, max: 100, step: 1 },
   priceBrl: { min: 10, max: 500, step: 5 },
   fx: { min: 1, max: 10, step: 0.01 },
   fixedCostsBrl: { min: 0, max: 1_000_000, step: 500 },
@@ -46,7 +46,7 @@ export function horizon(i: SimInput): number {
 
 export const DEFAULTS: SimInput = {
   users: 10_000,
-  conversion: 5,
+  freePct: 95,
   priceBrl: 80,
   fx: 5.4,
   fixedCostsBrl: 15_000,
@@ -76,7 +76,8 @@ export function sliderToUsers(pos: number): number {
 }
 
 export function simulate(i: SimInput): SimOutput {
-  const payingUsers = Math.round(i.users * (i.conversion / 100));
+  const payingShare = 1 - i.freePct / 100; // active (paying) users as a share of the base
+  const payingUsers = Math.round(i.users * payingShare);
   const priceBrl = i.priceBrl;
   const mrr = payingUsers * priceBrl;
   const mrrUsd = mrr / i.fx;
@@ -85,8 +86,8 @@ export function simulate(i: SimInput): SimOutput {
   const net = mrr - totalCosts;
   const margin = mrr > 0 ? (net / mrr) * 100 : 0;
 
-  // net(u) = u * c * priceBrl * (1 - v) - fixed  =>  u = fixed / (c * priceBrl * (1 - v))
-  const perUserNet = (i.conversion / 100) * priceBrl * (1 - i.variablePct / 100);
+  // net(u) = u * share * priceBrl * (1 - v) - fixed  =>  u = fixed / (share * priceBrl * (1 - v))
+  const perUserNet = payingShare * priceBrl * (1 - i.variablePct / 100);
   const breakEvenUsers = perUserNet > 0 ? Math.ceil(i.fixedCostsBrl / perUserNet) : null;
 
   return {

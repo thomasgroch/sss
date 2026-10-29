@@ -156,10 +156,10 @@ function Breakdown({ mrr, fixed, variable, net }: { mrr: number; fixed: number; 
 
 // ---------- presets ----------
 const PRESETS: { name: string; emoji: string; patch: Partial<SimInput> }[] = [
-  { name: "Indie Solo", emoji: "🌱", patch: { users: 800, conversion: 4, priceBrl: 49, fixedCostsBrl: 1_500, variablePct: 10, growthPct: 5, buildMonths: 2 } },
-  { name: "Indie Pro", emoji: "🧑‍💻", patch: { users: 5_000, conversion: 5, priceBrl: 79, fixedCostsBrl: 8_000, variablePct: 10, growthPct: 7, buildMonths: 3 } },
-  { name: "Startup", emoji: "🚀", patch: { users: 25_000, conversion: 5, priceBrl: 99, fixedCostsBrl: 60_000, variablePct: 12, growthPct: 12, buildMonths: 4 } },
-  { name: "Multitenancy", emoji: "🏢", patch: { users: 500_000, conversion: 2.5, priceBrl: 149, fixedCostsBrl: 600_000, variablePct: 8, growthPct: 4, buildMonths: 6 } }
+  { name: "Indie Solo", emoji: "🌱", patch: { users: 800, freePct: 96, priceBrl: 49, fixedCostsBrl: 1_500, variablePct: 10, growthPct: 5, buildMonths: 2 } },
+  { name: "Indie Pro", emoji: "🧑‍💻", patch: { users: 5_000, freePct: 95, priceBrl: 79, fixedCostsBrl: 8_000, variablePct: 10, growthPct: 7, buildMonths: 3 } },
+  { name: "Startup", emoji: "🚀", patch: { users: 25_000, freePct: 95, priceBrl: 99, fixedCostsBrl: 60_000, variablePct: 12, growthPct: 12, buildMonths: 4 } },
+  { name: "Multitenancy", emoji: "🏢", patch: { users: 500_000, freePct: 97, priceBrl: 149, fixedCostsBrl: 600_000, variablePct: 8, growthPct: 4, buildMonths: 6 } }
 ];
 
 const btn = "rounded-full border border-transparent bg-white px-3 py-1 text-sm font-medium text-zinc-700 shadow-sm ring-1 ring-zinc-200 transition-colors hover:bg-zinc-50 focus-visible:border-zinc-400 focus-visible:outline-none";
@@ -196,7 +196,7 @@ export function App() {
       <section aria-label="Resultados" className={`${panel} flex flex-col gap-1 bg-white shadow-sm lg:min-h-0 lg:flex-1`}>
         <h2 className={`${h2} text-zinc-500`}><span className="h-2 w-2 rounded-full bg-zinc-400" />Resultados</h2>
         <div className="grid gap-1 sm:grid-cols-2 xl:grid-cols-6">
-          <Metric emoji="📈" label="Receita mensal" value={out.mrr} usd={out.mrrUsd} sub={`${int.format(out.payingUsers)} pagantes × ${brl.format(out.priceBrl)}`} />
+          <Metric emoji="📈" label="Receita mensal" value={out.mrr} usd={out.mrrUsd} sub={`${int.format(out.payingUsers)} ativos × ${brl.format(out.priceBrl)}`} />
           <Metric emoji="🗓️" label="Receita anual" value={out.arr} usd={out.arrUsd} />
           <Metric emoji="💸" label="Custos mensais" value={out.totalCosts} sub={`${brl.format(input.fixedCostsBrl)} fixos + ${brl.format(out.variableCosts)} variáveis`} />
           <Metric emoji="🧾" label="Lucro mensal" value={out.net} usd={out.netUsd} signed />
@@ -210,7 +210,7 @@ export function App() {
           <div className="flex flex-col justify-center gap-1 lg:min-h-0">
             <Breakdown fixed={input.fixedCostsBrl} mrr={out.mrr} net={out.net} variable={out.variableCosts} />
             <p aria-live="polite" className={`px-2 text-sm font-semibold transition-colors ${status.cls}`}>{status.text}</p>
-            <p className="px-2 text-xs text-zinc-400">Estimativa simplificada: sem churn, impostos ou crescimento mês a mês.</p>
+            <p className="px-2 text-xs text-zinc-400">Estimativa simplificada: sem churn nem impostos.</p>
           </div>
         </div>
       </section>
@@ -220,13 +220,13 @@ export function App() {
           <h2 className={`${h2} text-emerald-700`}><span className="h-2 w-2 rounded-full bg-emerald-500" />Receita</h2>
           <div className="grid md:grid-cols-2 xl:grid-cols-4">
             <Control tone="revenue" emoji="👥" label="Usuários no lançamento" value={input.users} onChange={set("users")} min={LIMITS.users.min} max={LIMITS.users.max} step={1}
-              toSlider={usersToSlider} fromSlider={sliderToUsers} sliderMax={1000} format={(v) => int.format(v)} hint="Base ao lançar, de 100 a 1 milhão (escala logarítmica). Os cards mostram esse cenário." />
-            <Control tone="revenue" emoji="💳" label="Conversão" value={input.conversion} onChange={set("conversion")} min={LIMITS.conversion.min} max={LIMITS.conversion.max} step={LIMITS.conversion.step}
-              format={(v) => v.toFixed(1).replace(".", ",")} suffix="%" hint="Quantos da base pagam. Freemium costuma ficar entre 2% e 5%." />
+              toSlider={usersToSlider} fromSlider={sliderToUsers} sliderMax={1000} format={(v) => int.format(v)} hint="Base total ao lançar (ativos + gratuitos), de 100 a 1 milhão. Os cards mostram esse cenário." />
+            <Control tone="revenue" emoji="🆓" label="Usuários gratuitos" value={input.freePct} onChange={set("freePct")} min={LIMITS.freePct.min} max={LIMITS.freePct.max} step={LIMITS.freePct.step}
+              format={(v) => v.toFixed(0)} suffix="%" hint={input.freePct === 0 ? "Sem plano gratuito: toda a base é ativa (paga)." : `Parte da base que não paga. Os outros ${100 - input.freePct}% são ativos (pagantes). Freemium costuma ter 95% a 98% gratuitos.`} />
             <Control tone="revenue" emoji="💵" label="Preço mensal" value={input.priceBrl} onChange={set("priceBrl")} min={LIMITS.priceBrl.min} max={LIMITS.priceBrl.max} step={LIMITS.priceBrl.step}
               format={(v) => int.format(v)} prefix="R$" suffix="/mês" hint={`Por assinante. Equivale a ${usd.format(input.priceBrl / input.fx)}.`} />
             <Control tone="revenue" emoji="📈" label="Crescimento" value={input.growthPct} onChange={set("growthPct")} min={LIMITS.growthPct.min} max={LIMITS.growthPct.max} step={LIMITS.growthPct.step}
-              format={(v) => v.toFixed(1).replace(".", ",")} suffix="% ao mês" hint="Novos usuários por mês, composto. SaaS saudável: 5% a 10%." />
+              format={(v) => v.toFixed(1).replace(".", ",")} suffix="% ao mês" hint="Crescimento mensal da base, composto. SaaS saudável: 5% a 10%." />
           </div>
         </section>
         <section aria-label="Custos" className={`${panel} bg-amber-50`}>

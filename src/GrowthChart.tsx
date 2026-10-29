@@ -120,7 +120,7 @@ export function GrowthChart({ input, hover, onHover, onPickUsers }: Props) {
           <line stroke="#a1a1aa" strokeWidth="2" x1={W - PAD.r} x2={W - PAD.r} y1={PAD.t} y2={PAD.t + ih} />
           <line stroke="#a1a1aa" strokeWidth="2" x1={PAD.l} x2={W - PAD.r} y1={PAD.t + ih} y2={PAD.t + ih} />
           <text fill="#71717a" fontSize="16" fontWeight="700" textAnchor="middle" x={PAD.l + iw / 2} y={H - 10}>MESES A PARTIR DE HOJE</text>
-          <text fill="#047857" fontSize="16" fontWeight="700" textAnchor="middle" transform={`translate(22 ${PAD.t + ih / 2}) rotate(-90)`}>USUÁRIOS</text>
+          <text fill="#047857" fontSize="16" fontWeight="700" textAnchor="middle" transform={`translate(22 ${PAD.t + ih / 2}) rotate(-90)`}>USUÁRIOS NA BASE</text>
           <text fill="#6d28d9" fontSize="16" fontWeight="700" textAnchor="middle" transform={`translate(${W - 22} ${PAD.t + ih / 2}) rotate(90)`}>CAIXA (R$)</text>
 
           {/* series */}
@@ -146,7 +146,7 @@ export function GrowthChart({ input, hover, onHover, onPickUsers }: Props) {
               <foreignObject height="120" width="250" x={tooltipLeft ? hx + 14 : hx - 264} y={PAD.t + 4}>
                 <div className="rounded-lg bg-white px-3 py-2 text-sm shadow-lg ring-1 ring-zinc-200">
                   <div className="font-semibold text-zinc-900">Mês {hp.m}{hp.users === 0 ? " · construção" : ""}</div>
-                  <div className="flex justify-between gap-3"><span className="text-zinc-500">Usuários</span><span className="font-mono tabular-nums text-emerald-700">{int.format(hp.users)}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-zinc-500">Base</span><span className="font-mono tabular-nums text-emerald-700">{int.format(hp.users)}</span></div>
                   <div className="flex justify-between gap-3"><span className="text-zinc-500">Resultado</span><span className={`font-mono tabular-nums ${hp.net < 0 ? "text-rose-600" : "text-zinc-800"}`}>{brl.format(hp.net)}</span></div>
                   <div className="flex justify-between gap-3"><span className="text-zinc-500">Caixa</span><span className={`font-mono tabular-nums ${hp.cash < 0 ? "text-rose-600" : "text-violet-700"}`}>{brl.format(hp.cash)}</span></div>
                 </div>
