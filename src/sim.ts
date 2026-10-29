@@ -7,6 +7,7 @@ export interface SimInput {
   fx: number; // BRL per USD, only for the secondary USD figures
   fixedCostsBrl: number; // BRL per month: team, tools, marketing
   variablePct: number; // % of revenue: payment fees + infra that scales with usage
+  growthPct: number; // monthly user growth, % (drives the time projection)
 }
 
 export interface SimOutput {
@@ -32,8 +33,11 @@ export const LIMITS = {
   priceBrl: { min: 10, max: 500, step: 5 },
   fx: { min: 1, max: 10, step: 0.01 },
   fixedCostsBrl: { min: 0, max: 1_000_000, step: 500 },
-  variablePct: { min: 0, max: 60, step: 1 }
+  variablePct: { min: 0, max: 60, step: 1 },
+  growthPct: { min: 0, max: 30, step: 0.5 }
 } as const;
+
+export const HORIZON_MONTHS = 24;
 
 export const DEFAULTS: SimInput = {
   users: 10_000,
@@ -41,7 +45,8 @@ export const DEFAULTS: SimInput = {
   priceBrl: 80,
   fx: 5.4,
   fixedCostsBrl: 15_000,
-  variablePct: 12
+  variablePct: 12,
+  growthPct: 8
 };
 
 export function clamp(v: number, min: number, max: number): number {
@@ -94,4 +99,15 @@ export function simulate(i: SimInput): SimOutput {
     margin,
     breakEvenUsers
   };
+}
+
+/** Users after `month` months of compound growth, capped at the simulator limit. */
+export function usersAt(i: SimInput, month: number): number {
+  return Math.min(LIMITS.users.max, Math.round(i.users * Math.pow(1 + i.growthPct / 100, month)));
+}
+
+/** Fractional month at which the base reaches `users`, or null when growth is zero or users is below today. */
+export function monthFor(i: SimInput, users: number): number | null {
+  if (i.growthPct <= 0 || users < i.users) return null;
+  return Math.log(users / i.users) / Math.log(1 + i.growthPct / 100);
 }

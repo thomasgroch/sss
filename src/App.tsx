@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
 import { Chart } from "./Chart";
+import { GrowthChart } from "./GrowthChart";
 import { DEFAULTS, LIMITS, type SimInput, clamp, simulate, sliderToUsers, usersToSlider } from "./sim";
 
 // ---------- formatting ----------
@@ -155,10 +156,10 @@ function Breakdown({ mrr, fixed, variable, net }: { mrr: number; fixed: number; 
 
 // ---------- presets ----------
 const PRESETS: { name: string; emoji: string; patch: Partial<SimInput> }[] = [
-  { name: "Indie Solo", emoji: "🌱", patch: { users: 800, conversion: 4, priceBrl: 49, fixedCostsBrl: 1_500, variablePct: 10 } },
-  { name: "Indie Pro", emoji: "🧑‍💻", patch: { users: 5_000, conversion: 5, priceBrl: 79, fixedCostsBrl: 8_000, variablePct: 10 } },
-  { name: "Startup", emoji: "🚀", patch: { users: 25_000, conversion: 5, priceBrl: 99, fixedCostsBrl: 60_000, variablePct: 12 } },
-  { name: "Multitenancy", emoji: "🏢", patch: { users: 500_000, conversion: 2.5, priceBrl: 149, fixedCostsBrl: 600_000, variablePct: 8 } }
+  { name: "Indie Solo", emoji: "🌱", patch: { users: 800, conversion: 4, priceBrl: 49, fixedCostsBrl: 1_500, variablePct: 10, growthPct: 5 } },
+  { name: "Indie Pro", emoji: "🧑‍💻", patch: { users: 5_000, conversion: 5, priceBrl: 79, fixedCostsBrl: 8_000, variablePct: 10, growthPct: 7 } },
+  { name: "Startup", emoji: "🚀", patch: { users: 25_000, conversion: 5, priceBrl: 99, fixedCostsBrl: 60_000, variablePct: 12, growthPct: 12 } },
+  { name: "Multitenancy", emoji: "🏢", patch: { users: 500_000, conversion: 2.5, priceBrl: 149, fixedCostsBrl: 600_000, variablePct: 8, growthPct: 4 } }
 ];
 
 const btn = "rounded-full border border-transparent bg-white px-3 py-1 text-sm font-medium text-zinc-700 shadow-sm ring-1 ring-zinc-200 transition-colors hover:bg-zinc-50 focus-visible:border-zinc-400 focus-visible:outline-none";
@@ -170,6 +171,7 @@ export function App() {
   const [input, setInput] = useState<SimInput>(DEFAULTS);
   const set = <K extends keyof SimInput>(k: K) => (v: SimInput[K]) => setInput((p) => ({ ...p, [k]: v }));
   const out = useMemo(() => simulate(input), [input]);
+  const [hover, setHover] = useState<number | null>(null); // users under the cursor, shared by both charts
   const status = out.net >= 0
     ? { cls: "text-emerald-700", text: `✅ Rentável: margem de ${out.margin.toFixed(1).replace(".", ",")}% sobre a receita` }
     : out.breakEvenUsers
@@ -199,8 +201,9 @@ export function App() {
           <Metric emoji="🧾" label="Lucro mensal" value={out.net} usd={out.netUsd} signed />
           <Metric emoji="🏆" label="Lucro anual" value={out.netAnnual} usd={out.netAnnualUsd} signed />
         </div>
-        <div className="grid gap-1 lg:min-h-0 lg:flex-1 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          <Chart input={input} onPickUsers={set("users")} />
+        <div className="grid gap-1 lg:min-h-0 lg:flex-1 xl:grid-cols-[minmax(0,5fr)_minmax(0,5fr)_minmax(0,3fr)]">
+          <Chart hover={hover} input={input} onHover={setHover} onPickUsers={set("users")} />
+          <GrowthChart hover={hover} input={input} onHover={setHover} onPickUsers={set("users")} />
           <div className="flex flex-col justify-center gap-1 lg:min-h-0">
             <Breakdown fixed={input.fixedCostsBrl} mrr={out.mrr} net={out.net} variable={out.variableCosts} />
             <p aria-live="polite" className={`px-2 text-sm font-semibold transition-colors ${status.cls}`}>{status.text}</p>
@@ -209,16 +212,18 @@ export function App() {
         </div>
       </section>
 
-      <div className="grid gap-1.5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className="grid gap-1.5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <section aria-label="Receita" className={`${panel} bg-emerald-50`}>
           <h2 className={`${h2} text-emerald-700`}><span className="h-2 w-2 rounded-full bg-emerald-500" />Receita</h2>
-          <div className="grid md:grid-cols-3">
+          <div className="grid md:grid-cols-2 xl:grid-cols-4">
             <Control tone="revenue" emoji="👥" label="Usuários" value={input.users} onChange={set("users")} min={LIMITS.users.min} max={LIMITS.users.max} step={1}
               toSlider={usersToSlider} fromSlider={sliderToUsers} sliderMax={1000} format={(v) => int.format(v)} hint="Base total, de 100 a 1 milhão (escala logarítmica)." />
             <Control tone="revenue" emoji="💳" label="Conversão" value={input.conversion} onChange={set("conversion")} min={LIMITS.conversion.min} max={LIMITS.conversion.max} step={LIMITS.conversion.step}
               format={(v) => v.toFixed(1).replace(".", ",")} suffix="%" hint="Quantos da base pagam. Freemium costuma ficar entre 2% e 5%." />
             <Control tone="revenue" emoji="💵" label="Preço mensal" value={input.priceBrl} onChange={set("priceBrl")} min={LIMITS.priceBrl.min} max={LIMITS.priceBrl.max} step={LIMITS.priceBrl.step}
               format={(v) => int.format(v)} prefix="R$" suffix="/mês" hint={`Por assinante. Equivale a ${usd.format(input.priceBrl / input.fx)}.`} />
+            <Control tone="revenue" emoji="📈" label="Crescimento" value={input.growthPct} onChange={set("growthPct")} min={LIMITS.growthPct.min} max={LIMITS.growthPct.max} step={LIMITS.growthPct.step}
+              format={(v) => v.toFixed(1).replace(".", ",")} suffix="% ao mês" hint="Novos usuários por mês, composto. SaaS saudável: 5% a 10%." />
           </div>
         </section>
         <section aria-label="Custos" className={`${panel} bg-amber-50`}>

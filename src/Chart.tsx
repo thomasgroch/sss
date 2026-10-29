@@ -10,6 +10,8 @@ const SERIES = [
 
 interface Props {
   input: SimInput;
+  hover: number | null; // users under the cursor, shared with the growth chart
+  onHover: (users: number | null) => void;
   onPickUsers: (users: number) => void;
 }
 
@@ -17,9 +19,8 @@ interface Props {
  * Receita, custos e lucro mensais (R$) em função do número de usuários.
  * Eixo X em escala log. Hover mostra valores; clique leva o simulador àquele ponto.
  */
-export function Chart({ input, onPickUsers }: Props) {
+export function Chart({ input, hover, onHover, onPickUsers }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [hover, setHover] = useState<number | null>(null); // users under cursor
 
   // The viewBox follows the container's aspect ratio so the chart fills its box without distorting text.
   // Narrow containers get a smaller viewBox width so labels stay readable.
@@ -98,7 +99,8 @@ export function Chart({ input, onPickUsers }: Props) {
     return Math.round(uOf(px));
   };
 
-  const hovered = hover ? simulate({ ...input, users: hover }) : null;
+  const inRange = hover !== null && hover >= xMin && hover <= xMax;
+  const hovered = inRange ? simulate({ ...input, users: hover }) : null;
   const hx = hover ? xOf(hover) : 0;
   const tooltipLeft = hover ? hx < W * 0.6 : true;
   const curX = xOf(input.users);
@@ -129,8 +131,8 @@ export function Chart({ input, onPickUsers }: Props) {
         ref={svgRef}
         role="img"
         viewBox={`0 0 ${W} ${H}`}
-        onPointerMove={(e) => setHover(toUsers(e))}
-        onPointerLeave={() => setHover(null)}
+        onPointerMove={(e) => onHover(toUsers(e))}
+        onPointerLeave={() => onHover(null)}
         onPointerDown={(e) => { const u = toUsers(e); if (u) onPickUsers(u); }}
       >
         {/* grid + y labels */}
@@ -178,7 +180,7 @@ export function Chart({ input, onPickUsers }: Props) {
         ))}
 
         {/* hover */}
-        {hover && hovered ? (
+        {hover !== null && hovered ? (
           <g>
             <line stroke="#3f3f46" strokeOpacity="0.5" strokeWidth="1" x1={hx} x2={hx} y1={PAD.t} y2={PAD.t + ih} />
             {SERIES.map((s) => <circle cx={hx} cy={yOf(hovered[s.key])} fill={s.color} key={s.key} r="5" />)}
