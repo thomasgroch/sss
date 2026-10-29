@@ -101,9 +101,9 @@ interface ControlProps {
 /** Visual group colors. Borders stay transparent so nothing shifts when a state changes. */
 type Tone = "revenue" | "costs" | "results";
 const TONES: Record<Tone, { heading: string; card: string; cardActive: string; value: string; fill: string; dot: string }> = {
-  revenue: { heading: "text-emerald-400", card: "bg-emerald-950/40", cardActive: "focus-within:border-emerald-500/50", value: "text-emerald-300", fill: "#34d399", dot: "bg-emerald-400" },
-  costs: { heading: "text-amber-400", card: "bg-amber-950/30", cardActive: "focus-within:border-amber-500/50", value: "text-amber-300", fill: "#fbbf24", dot: "bg-amber-400" },
-  results: { heading: "text-sky-400", card: "bg-sky-950/30", cardActive: "focus-within:border-sky-500/50", value: "text-sky-300", fill: "#38bdf8", dot: "bg-sky-400" }
+  revenue: { heading: "text-emerald-300", card: "", cardActive: "focus-within:border-emerald-400/60", value: "text-emerald-300", fill: "#34d399", dot: "bg-emerald-400" },
+  costs: { heading: "text-amber-300", card: "", cardActive: "focus-within:border-amber-400/60", value: "text-amber-300", fill: "#fbbf24", dot: "bg-amber-400" },
+  results: { heading: "text-sky-300", card: "", cardActive: "focus-within:border-sky-400/60", value: "text-sky-300", fill: "#38bdf8", dot: "bg-sky-400" }
 };
 
 function Control(p: ControlProps) {
@@ -122,16 +122,16 @@ function Control(p: ControlProps) {
 
   return (
     <label className={`group block rounded-2xl border border-transparent ${t.card} p-4 sm:p-5 transition-colors duration-300 ${t.cardActive}`}>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <span className="flex items-center gap-2 text-base font-semibold text-slate-200">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <span className="flex items-center gap-2 text-lg font-semibold text-slate-100">
           <span aria-hidden="true">{p.emoji}</span>
           {p.label}
         </span>
-        <span className={`flex items-center gap-1 rounded-lg border border-transparent bg-slate-950/80 px-2.5 py-1.5 font-mono text-base font-semibold ${t.value} transition-colors duration-200 focus-within:bg-slate-950`}>
+        <span className={`flex items-center gap-1 rounded-lg border border-transparent bg-slate-950/80 px-3 py-2 font-mono text-lg font-semibold ${t.value} transition-colors duration-200 focus-within:bg-slate-950`}>
           {p.prefix ? <span className="text-slate-500">{p.prefix}</span> : null}
           <input
             aria-label={`${p.label} (valor)`}
-            className="w-28 bg-transparent text-right tabular-nums outline-none"
+            className="w-28 min-w-0 bg-transparent text-right tabular-nums outline-none"
             inputMode="decimal"
             type="text"
             value={draft ?? p.format(p.value)}
@@ -160,7 +160,7 @@ function Control(p: ControlProps) {
           p.onChange(p.fromSlider ? p.fromSlider(pos) : pos);
         }}
       />
-      {p.hint ? <p className="mt-2.5 text-sm leading-snug text-slate-500">{p.hint}</p> : null}
+      {p.hint ? <p className="mt-3 text-base leading-snug text-slate-400">{p.hint}</p> : null}
     </label>
   );
 }
@@ -191,10 +191,10 @@ function Metric(m: MetricProps) {
     : "border-transparent";
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border bg-sky-950/30 p-4 sm:p-5 transition-[border-color,box-shadow] duration-500 ease-out ${tint} ${m.big ? "sm:col-span-2" : ""}`}
+      className={`relative overflow-hidden rounded-2xl border p-4 sm:p-5 transition-[border-color,box-shadow] duration-500 ease-out ${tint} ${m.big ? "sm:col-span-2" : ""}`}
       style={{ transitionDelay: `${m.delay ?? 0}ms` }}
     >
-      <div className="mb-1.5 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-sky-400/80">
+      <div className="mb-2 flex items-center gap-2 text-base font-semibold uppercase tracking-wide text-sky-300/90">
         <span aria-hidden="true">{m.emoji}</span>
         {m.label}
         {dir ? (
@@ -205,14 +205,14 @@ function Metric(m: MetricProps) {
       </div>
       <div
         aria-live="polite"
-        className={`min-w-0 whitespace-nowrap font-mono tabular-nums tracking-tight leading-tight transition-colors duration-500 ${m.big ? "text-[clamp(2rem,3.2vw,3.75rem)]" : "text-[clamp(1.35rem,1.7vw,2.25rem)]"} ${negative ? "text-rose-300" : "text-white"}`}
+        className={`min-w-0 whitespace-nowrap font-mono tabular-nums tracking-tight leading-tight transition-colors duration-500 ${m.big ? "text-[clamp(2.5rem,4vw,4.5rem)]" : "text-[clamp(1.75rem,2.4vw,3rem)]"} ${negative ? "text-rose-300" : "text-white"}`}
       >
         {fmt(animated)}
       </div>
       {m.usd !== undefined ? (
-        <div className="mt-1.5 font-mono text-sm tabular-nums text-slate-500">{usd.format(animatedUsd)}</div>
+        <div className="mt-2 font-mono text-base tabular-nums text-slate-400">{usd.format(animatedUsd)}</div>
       ) : null}
-      {m.sub ? <div className="mt-1.5 text-sm text-slate-500">{m.sub}</div> : null}
+      {m.sub ? <div className="mt-2 text-base text-slate-400">{m.sub}</div> : null}
     </div>
   );
 }
@@ -224,8 +224,8 @@ function Breakdown({ mrr, fixed, variable, net }: { mrr: number; fixed: number; 
   const seg = "h-full transition-[width] duration-500 ease-out";
   const overspend = net < 0;
   return (
-    <div className="rounded-2xl border border-transparent bg-sky-950/30 p-4 sm:p-5">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm font-semibold uppercase tracking-wide text-sky-400/80">
+    <div className="rounded-2xl border border-transparent p-4 sm:p-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-base font-semibold uppercase tracking-wide text-sky-300/90">
         <span>🧮 Para onde vai cada real</span>
         <span className={`transition-colors duration-500 ${overspend ? "text-rose-400" : "text-emerald-400"}`}>
           {overspend ? "custos acima da receita" : "operação rentável"}
@@ -236,7 +236,7 @@ function Breakdown({ mrr, fixed, variable, net }: { mrr: number; fixed: number; 
         <div className={`${seg} bg-sky-400`} style={{ width: w(variable) }} title="Custos variáveis" />
         <div className={`${seg} ${overspend ? "bg-rose-500" : "bg-emerald-400"}`} style={{ width: w(Math.max(0, net)) }} title="Lucro" />
       </div>
-      <ul className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1.5 text-sm text-slate-400 sm:grid-cols-3">
+      <ul className="mt-3 flex flex-col gap-y-2 text-base text-slate-300">
         <Legend color="bg-amber-400" label="Fixos" value={fixed} />
         <Legend color="bg-sky-400" label="Variáveis" value={variable} />
         <Legend color={overspend ? "bg-rose-500" : "bg-emerald-400"} label="Lucro" value={net} />
@@ -251,7 +251,7 @@ function Legend({ color, label, value }: { color: string; label: string; value: 
     <li className="flex items-center gap-2">
       <span className={`h-3 w-3 rounded-full ${color} transition-colors duration-500`} />
       <span>{label}</span>
-      <span className="ml-auto font-mono tabular-nums text-slate-300">{brl.format(animated)}</span>
+      <span className="ml-auto font-mono tabular-nums text-white">{brl.format(animated)}</span>
     </li>
   );
 }
@@ -276,13 +276,13 @@ function FxChip({ value, onChange }: { value: number; onChange: (v: number) => v
     setDraft(null);
   };
   return (
-    <label className="flex items-center gap-1.5 rounded-full border border-transparent bg-slate-900 px-4 py-2 text-sm text-slate-400 transition-colors duration-200 focus-within:border-slate-500 hover:bg-slate-800">
+    <label className="flex items-center gap-1.5 rounded-full border border-transparent bg-slate-900 px-5 py-2.5 text-lg text-slate-300 transition-colors duration-200 focus-within:border-slate-500 hover:bg-slate-800">
       <span aria-hidden="true">💱</span>
       <span>US$ 1 =</span>
       <span className="text-slate-500">R$</span>
       <input
         aria-label="Câmbio (reais por dólar)"
-        className="w-14 bg-transparent font-mono tabular-nums text-slate-200 outline-none"
+        className="w-16 bg-transparent font-mono tabular-nums text-slate-200 outline-none"
         inputMode="decimal"
         type="text"
         value={draft ?? value.toFixed(2).replace(".", ",")}
@@ -316,15 +316,15 @@ export function App() {
       <div className="w-full">
         <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl">💰 SaaS Subscription Simulator</h1>
-            <p className="mt-2 max-w-2xl text-base text-slate-400 sm:text-lg">
+            <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl">💰 SaaS Subscription Simulator</h1>
+            <p className="mt-3 max-w-3xl text-lg text-slate-400 sm:text-xl">
               Cinco parâmetros, resultado em reais na hora. Tudo roda no seu navegador, nada é salvo.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {PRESETS.map((pr) => (
               <button
-                className="rounded-full border border-transparent bg-slate-900 px-4 py-2 text-base text-slate-300 transition-colors duration-200 hover:bg-slate-800 hover:text-white focus-visible:border-slate-500 focus-visible:outline-none"
+                className="rounded-full border border-transparent bg-slate-900 px-5 py-2.5 text-lg text-slate-200 transition-colors duration-200 hover:bg-slate-800 hover:text-white focus-visible:border-slate-500 focus-visible:outline-none"
                 key={pr.name}
                 type="button"
                 onClick={() => setInput((prev) => ({ ...prev, ...pr.patch }))}
@@ -333,7 +333,7 @@ export function App() {
               </button>
             ))}
             <button
-              className="rounded-full border border-transparent bg-slate-900/60 px-4 py-2 text-base text-slate-500 transition-colors duration-200 hover:bg-slate-800 hover:text-slate-300 focus-visible:border-slate-500 focus-visible:outline-none"
+              className="rounded-full border border-transparent bg-slate-900/60 px-5 py-2.5 text-lg text-slate-400 transition-colors duration-200 hover:bg-slate-800 hover:text-slate-300 focus-visible:border-slate-500 focus-visible:outline-none"
               type="button"
               onClick={() => setInput(DEFAULTS)}
             >
@@ -343,64 +343,70 @@ export function App() {
           </div>
         </header>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-          {/* ---- controls ---- */}
-          <section aria-label="Parâmetros" className="space-y-3">
-            <h2 className="flex items-center gap-2 px-1 text-sm font-bold uppercase tracking-widest text-emerald-400"><span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />Receita</h2>
-            <Control
-              tone="revenue" emoji="👥" label="Usuários" value={input.users} onChange={set("users")}
-              min={LIMITS.users.min} max={LIMITS.users.max} step={1}
-              toSlider={usersToSlider} fromSlider={sliderToUsers} sliderMax={1000}
-              format={(v) => int.format(v)} hint="Base total, de 100 a 1 milhão (escala logarítmica)."
-            />
-            <Control
-              tone="revenue" emoji="💳" label="Conversão" value={input.conversion} onChange={set("conversion")}
-              min={LIMITS.conversion.min} max={LIMITS.conversion.max} step={LIMITS.conversion.step}
-              format={(v) => v.toFixed(1)} suffix="%" hint="Quantos da base pagam. Freemium costuma ficar entre 2% e 5%."
-            />
-            <Control
-              tone="revenue" emoji="💵" label="Preço mensal" value={input.priceUsd} onChange={set("priceUsd")}
-              min={LIMITS.priceUsd.min} max={LIMITS.priceUsd.max} step={LIMITS.priceUsd.step}
-              format={(v) => v.toFixed(0)} prefix="US$" hint={`Equivale a ${brl.format(out.priceBrl)} por assinante.`}
-            />
+        {/* ---- results: full width ---- */}
+        <section aria-label="Resultados" className="rounded-3xl bg-sky-950/40 p-4 ring-1 ring-sky-400/10 sm:p-6 lg:p-8">
+          <h2 className="mb-4 flex items-center gap-3 text-base font-bold uppercase tracking-widest text-sky-300"><span className="h-3 w-3 rounded-full bg-sky-400" />Resultados</h2>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <Metric big emoji="📈" label="Receita mensal" value={out.mrr} usd={out.mrrUsd} sub={`${int.format(out.payingUsers)} clientes pagantes × ${brl.format(out.priceBrl)}`} />
+            <Metric emoji="🗓️" label="Receita anual" value={out.arr} usd={out.arrUsd} delay={40} />
+            <Metric emoji="💸" label="Custos mensais" value={out.totalCosts} delay={80} sub={`${brl.format(input.fixedCostsBrl)} fixos + ${brl.format(out.variableCosts)} variáveis`} />
+            <Metric emoji="🧾" label="Lucro mensal" value={out.net} usd={out.netUsd} signed delay={120} />
+          </div>
 
-            <h2 className="flex items-center gap-2 px-1 pt-3 text-sm font-bold uppercase tracking-widest text-amber-400"><span className="h-2.5 w-2.5 rounded-full bg-amber-400" />Custos</h2>
-            <Control
-              tone="costs" emoji="🏗️" label="Custos fixos" value={input.fixedCostsBrl} onChange={set("fixedCostsBrl")}
-              min={LIMITS.fixedCostsBrl.min} max={LIMITS.fixedCostsBrl.max} step={LIMITS.fixedCostsBrl.step}
-              format={(v) => int.format(v)} prefix="R$" suffix="/mês" hint="Equipe, ferramentas e marketing: não mudam com o número de usuários."
-            />
-            <Control
-              tone="costs" emoji="☁️" label="Custos variáveis (da receita)" value={input.variablePct} onChange={set("variablePct")}
-              min={LIMITS.variablePct.min} max={LIMITS.variablePct.max} step={LIMITS.variablePct.step}
-              format={(v) => v.toFixed(0)} suffix="%" hint="Taxas de pagamento, infra e suporte que crescem junto com a receita. Típico: 10% a 20%."
-            />
+          <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+            <Chart input={input} onPickUsers={set("users")} />
+            <div className="flex flex-col gap-4">
+              <Metric big emoji="🏆" label="Lucro anual" value={out.netAnnual} usd={out.netAnnualUsd} signed delay={160} />
+              <Breakdown mrr={out.mrr} fixed={input.fixedCostsBrl} variable={out.variableCosts} net={out.net} />
+              <p aria-live="polite" className={`px-1 text-lg font-semibold transition-colors duration-500 ${status.tone}`}>{status.text}</p>
+            </div>
+          </div>
+        </section>
+
+        {/* ---- controls: below, two colored panels ---- */}
+        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+          <section aria-label="Receita" className="rounded-3xl bg-emerald-950/40 p-4 ring-1 ring-emerald-400/10 sm:p-6 lg:p-8">
+            <h2 className="mb-4 flex items-center gap-3 text-base font-bold uppercase tracking-widest text-emerald-300"><span className="h-3 w-3 rounded-full bg-emerald-400" />Receita</h2>
+            <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
+              <Control
+                tone="revenue" emoji="👥" label="Usuários" value={input.users} onChange={set("users")}
+                min={LIMITS.users.min} max={LIMITS.users.max} step={1}
+                toSlider={usersToSlider} fromSlider={sliderToUsers} sliderMax={1000}
+                format={(v) => int.format(v)} hint="Base total, de 100 a 1 milhão (escala logarítmica)."
+              />
+              <Control
+                tone="revenue" emoji="💳" label="Conversão" value={input.conversion} onChange={set("conversion")}
+                min={LIMITS.conversion.min} max={LIMITS.conversion.max} step={LIMITS.conversion.step}
+                format={(v) => v.toFixed(1)} suffix="%" hint="Quantos da base pagam. Freemium costuma ficar entre 2% e 5%."
+              />
+              <Control
+                tone="revenue" emoji="💵" label="Preço mensal" value={input.priceUsd} onChange={set("priceUsd")}
+                min={LIMITS.priceUsd.min} max={LIMITS.priceUsd.max} step={LIMITS.priceUsd.step}
+                format={(v) => v.toFixed(0)} prefix="US$" hint={`Equivale a ${brl.format(out.priceBrl)} por assinante.`}
+              />
+            </div>
           </section>
 
-          {/* ---- results ---- */}
-          <section aria-label="Resultados" className="space-y-3">
-            <h2 className="flex items-center gap-2 px-1 text-sm font-bold uppercase tracking-widest text-sky-400"><span className="h-2.5 w-2.5 rounded-full bg-sky-400" />Resultados</h2>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <Metric big emoji="📈" label="Receita mensal" value={out.mrr} usd={out.mrrUsd} sub={`${int.format(out.payingUsers)} clientes pagantes × ${brl.format(out.priceBrl)}`} />
-              <Metric emoji="🗓️" label="Receita anual" value={out.arr} usd={out.arrUsd} delay={40} />
-              <Metric emoji="💸" label="Custos mensais" value={out.totalCosts} delay={80} sub={`${brl.format(input.fixedCostsBrl)} fixos + ${brl.format(out.variableCosts)} variáveis`} />
+          <section aria-label="Custos" className="rounded-3xl bg-amber-950/30 p-4 ring-1 ring-amber-400/10 sm:p-6 lg:p-8">
+            <h2 className="mb-4 flex items-center gap-3 text-base font-bold uppercase tracking-widest text-amber-300"><span className="h-3 w-3 rounded-full bg-amber-400" />Custos</h2>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+              <Control
+                tone="costs" emoji="🏗️" label="Custos fixos" value={input.fixedCostsBrl} onChange={set("fixedCostsBrl")}
+                min={LIMITS.fixedCostsBrl.min} max={LIMITS.fixedCostsBrl.max} step={LIMITS.fixedCostsBrl.step}
+                format={(v) => int.format(v)} prefix="R$" suffix="/mês" hint="Equipe, ferramentas e marketing: não mudam com o número de usuários."
+              />
+              <Control
+                tone="costs" emoji="☁️" label="Custos variáveis" value={input.variablePct} onChange={set("variablePct")}
+                min={LIMITS.variablePct.min} max={LIMITS.variablePct.max} step={LIMITS.variablePct.step}
+                format={(v) => v.toFixed(0)} suffix="% da receita" hint="Taxas de pagamento, infra e suporte que crescem junto com a receita. Típico: 10% a 20%."
+              />
             </div>
-
-            <Chart input={input} onPickUsers={set("users")} />
-
-            <Breakdown mrr={out.mrr} fixed={input.fixedCostsBrl} variable={out.variableCosts} net={out.net} />
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Metric emoji="🧾" label="Lucro mensal" value={out.net} usd={out.netUsd} signed delay={120} />
-              <Metric emoji="🏆" label="Lucro anual" value={out.netAnnual} usd={out.netAnnualUsd} signed delay={160} />
-            </div>
-
-            <p aria-live="polite" className={`px-1 pt-1 text-base font-semibold transition-colors duration-500 ${status.tone}`}>{status.text}</p>
-            <p className="px-1 text-sm text-slate-600">
-              Estimativa simplificada: sem churn, impostos ou crescimento mês a mês. Ponto de partida, não plano financeiro.
-            </p>
           </section>
         </div>
+
+        <p className="mt-6 px-1 text-base text-slate-500">
+          Estimativa simplificada: sem churn, impostos ou crescimento mês a mês. Ponto de partida, não plano financeiro.
+        </p>
       </div>
     </main>
   );

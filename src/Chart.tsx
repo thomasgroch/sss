@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { LIMITS, type SimInput, simulate } from "./sim";
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -31,8 +31,18 @@ export function Chart({ input, onPickUsers }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<number | null>(null); // users under cursor
 
-  const W = 1000, H = 420;
-  const PAD = { l: 76, r: 24, t: 20, b: 44 };
+  // Narrow containers get a smaller viewBox so labels stay readable instead of shrinking with the SVG.
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setNarrow(entry.contentRect.width < 560));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const W = narrow ? 560 : 1000, H = narrow ? 460 : 420;
+  const PAD = narrow ? { l: 72, r: 16, t: 36, b: 64 } : { l: 96, r: 28, t: 36, b: 70 };
   const iw = W - PAD.l - PAD.r;
   const ih = H - PAD.t - PAD.b;
 
@@ -97,10 +107,10 @@ export function Chart({ input, onPickUsers }: Props) {
   const beX = out.breakEvenUsers && out.breakEvenUsers >= xMin && out.breakEvenUsers <= xMax ? xOf(out.breakEvenUsers) : null;
 
   return (
-    <figure className="rounded-2xl border border-transparent bg-sky-950/30 p-4 sm:p-5">
+    <figure className="rounded-2xl border border-transparent p-4 sm:p-5">
       <figcaption className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <span className="text-sm font-semibold uppercase tracking-wide text-sky-400/80">📉 Receita, custos e lucro por usuários</span>
-        <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-300">
+        <span className="text-base font-semibold uppercase tracking-wide text-sky-300/90">📉 Receita, custos e lucro por usuários</span>
+        <ul className="flex flex-wrap gap-x-5 gap-y-1 text-base text-slate-300">
           {SERIES.map((s) => (
             <li className="flex items-center gap-2" key={s.key}>
               <span className="h-3 w-3 rounded-full" style={{ background: s.color }} />
@@ -127,15 +137,24 @@ export function Chart({ input, onPickUsers }: Props) {
         {/* grid + y labels */}
         {yTicks.map((v) => (
           <g key={v}>
-            <line stroke={v === 0 ? "#475569" : "#1e293b"} strokeWidth={v === 0 ? 1.5 : 1} x1={PAD.l} x2={W - PAD.r} y1={yOf(v)} y2={yOf(v)} />
-            <text fill="#64748b" fontSize="15" textAnchor="end" x={PAD.l - 10} y={yOf(v) + 5}>R$ {compact(v)}</text>
+            <line stroke={v === 0 ? "#64748b" : "#1e293b"} strokeWidth={v === 0 ? 1.5 : 1} x1={PAD.l} x2={W - PAD.r} y1={yOf(v)} y2={yOf(v)} />
+            <line stroke="#94a3b8" x1={PAD.l - 6} x2={PAD.l} y1={yOf(v)} y2={yOf(v)} />
+            <text fill="#cbd5e1" fontSize="17" fontWeight="600" textAnchor="end" x={PAD.l - 12} y={yOf(v) + 6}>{compact(v)}</text>
           </g>
         ))}
         {/* x labels */}
         {xTicks.map((u) => (
-          <text fill="#64748b" fontSize="15" key={u} textAnchor="middle" x={xOf(u)} y={H - 14}>{compact(u)}</text>
+          <g key={u}>
+            <line stroke="#1e293b" x1={xOf(u)} x2={xOf(u)} y1={PAD.t} y2={PAD.t + ih} />
+            <line stroke="#94a3b8" x1={xOf(u)} x2={xOf(u)} y1={PAD.t + ih} y2={PAD.t + ih + 6} />
+            <text fill="#cbd5e1" fontSize="17" fontWeight="600" textAnchor="middle" x={xOf(u)} y={PAD.t + ih + 26}>{compact(u)}</text>
+          </g>
         ))}
-        <text fill="#64748b" fontSize="13" textAnchor="end" x={W - PAD.r} y={PAD.t + ih - 8}>usuários →</text>
+        {/* axis lines + titles */}
+        <line stroke="#94a3b8" strokeWidth="2" x1={PAD.l} x2={PAD.l} y1={PAD.t} y2={PAD.t + ih} />
+        <line stroke="#94a3b8" strokeWidth="2" x1={PAD.l} x2={W - PAD.r} y1={PAD.t + ih} y2={PAD.t + ih} />
+        <text fill="#94a3b8" fontSize="16" fontWeight="700" textAnchor="middle" x={PAD.l + iw / 2} y={H - 10}>USUÁRIOS (escala logarítmica)</text>
+        <text fill="#94a3b8" fontSize="16" fontWeight="700" textAnchor="middle" transform={`translate(22 ${PAD.t + ih / 2}) rotate(-90)`}>R$ POR MÊS</text>
 
         {/* profit area */}
         <path d={`${path("net")} L${xOf(points[points.length - 1].u).toFixed(1)},${yOf(0)} L${PAD.l},${yOf(0)} Z`} fill="#38bdf8" opacity="0.08" />
@@ -144,7 +163,7 @@ export function Chart({ input, onPickUsers }: Props) {
         {beX !== null ? (
           <g style={{ transition: "transform .5s ease" }}>
             <line stroke="#94a3b8" strokeDasharray="6 6" strokeWidth="1.5" x1={beX} x2={beX} y1={PAD.t} y2={PAD.t + ih} />
-            <text fill="#94a3b8" fontSize="13" textAnchor="middle" x={beX} y={PAD.t - 6}>break-even {compact(out.breakEvenUsers!)}</text>
+            <text fill="#cbd5e1" fontSize="15" fontWeight="600" textAnchor="middle" x={beX} y={PAD.t - 10}>break-even {compact(out.breakEvenUsers!)}</text>
           </g>
         ) : null}
 
@@ -164,8 +183,8 @@ export function Chart({ input, onPickUsers }: Props) {
           <g>
             <line stroke="#e2e8f0" strokeOpacity="0.5" strokeWidth="1" x1={hx} x2={hx} y1={PAD.t} y2={PAD.t + ih} />
             {SERIES.map((s) => <circle cx={hx} cy={yOf(hovered[s.key])} fill={s.color} key={s.key} r="5" />)}
-            <foreignObject height="150" width="250" x={tooltipLeft ? hx + 14 : hx - 264} y={PAD.t}>
-              <div className="rounded-xl bg-slate-950/95 px-3 py-2 text-sm shadow-xl ring-1 ring-white/10">
+            <foreignObject height="170" width="280" x={tooltipLeft ? hx + 14 : hx - 294} y={PAD.t + 4}>
+              <div className="rounded-xl bg-slate-950/95 px-3 py-2 text-base shadow-xl ring-1 ring-white/10">
                 <div className="mb-1 font-semibold text-white">{int.format(hover)} usuários</div>
                 {SERIES.map((s) => (
                   <div className="flex items-center justify-between gap-4" key={s.key}>
@@ -173,7 +192,7 @@ export function Chart({ input, onPickUsers }: Props) {
                     <span className="font-mono tabular-nums" style={{ color: s.color }}>{brl.format(hovered[s.key])}</span>
                   </div>
                 ))}
-                <div className="mt-1 text-xs text-slate-500">clique para simular aqui</div>
+                <div className="mt-1 text-sm text-slate-500">clique para simular aqui</div>
               </div>
             </foreignObject>
           </g>
