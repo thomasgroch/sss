@@ -1,2 +1,6 @@
-.lakebed/
-.env.lakebed.server
+node_modules
+dist
+.wrangler
+.lakebed
+.env*
+.DS_Store
