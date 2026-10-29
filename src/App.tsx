@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
 import { Chart } from "./Chart";
 import { GrowthChart } from "./GrowthChart";
-import { DEFAULTS, LIMITS, type SimInput, clamp, simulate, sliderToUsers, timeline, usersToSlider } from "./sim";
+import { DEFAULTS, LIMITS, type SimInput, clamp, fromQuery, simulate, sliderToUsers, timeline, toQuery, usersToSlider } from "./sim";
 
 // ---------- formatting ----------
 export const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -168,7 +168,15 @@ const h2 = "flex items-center gap-1.5 px-2 text-xs font-bold uppercase tracking-
 
 // ---------- app ----------
 export function App() {
-  const [input, setInput] = useState<SimInput>(DEFAULTS);
+  const [input, setInput] = useState<SimInput>(() => fromQuery(location.search));
+  const [copied, setCopied] = useState(false);
+  // The URL mirrors the scenario, so the address bar is always a shareable link.
+  useEffect(() => { history.replaceState(null, "", `?${toQuery(input)}`); }, [input]);
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(location.href);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
   const set = <K extends keyof SimInput>(k: K) => (v: SimInput[K]) => setInput((p) => ({ ...p, [k]: v }));
   const out = useMemo(() => simulate(input), [input]);
   const tl = useMemo(() => timeline(input), [input]);
@@ -186,6 +194,7 @@ export function App() {
         <div className="flex flex-wrap items-center gap-1">
           {PRESETS.map((p) => <button className={btn} key={p.name} type="button" onClick={() => setInput((prev) => ({ ...prev, ...p.patch }))}>{p.emoji} {p.name}</button>)}
           <button className={`${btn} text-zinc-400`} type="button" onClick={() => setInput(DEFAULTS)}>↺ Reset</button>
+          <button className={`${btn} min-w-[8.5rem] ${copied ? "text-emerald-700" : ""}`} type="button" onClick={() => void copyLink()}>{copied ? "✓ Link copiado" : "🔗 Copiar link"}</button>
           <label className={`${btn} flex items-center gap-1 text-zinc-500`}>
             <span aria-hidden="true">💱</span> US$ 1 = R$
             <NumberField className="w-10 text-zinc-800" format={(v) => v.toFixed(2).replace(".", ",")} label="Câmbio (reais por dólar)" max={LIMITS.fx.max} min={LIMITS.fx.min} value={input.fx} onChange={set("fx")} />
@@ -219,12 +228,12 @@ export function App() {
         <section aria-label="Receita" className={`${panel} bg-emerald-50`}>
           <h2 className={`${h2} text-emerald-700`}><span className="h-2 w-2 rounded-full bg-emerald-500" />Receita</h2>
           <div className="grid md:grid-cols-2 xl:grid-cols-4">
-            <Control tone="revenue" emoji="👥" label="Usuários no lançamento" value={input.users} onChange={set("users")} min={LIMITS.users.min} max={LIMITS.users.max} step={1}
-              toSlider={usersToSlider} fromSlider={sliderToUsers} sliderMax={1000} format={(v) => int.format(v)} hint="Base total ao lançar (ativos + gratuitos), de 100 a 1 milhão. Os cards mostram esse cenário." />
+            <Control tone="revenue" emoji="👥" label="Base no lançamento" value={input.users} onChange={set("users")} min={LIMITS.users.min} max={LIMITS.users.max} step={1}
+              toSlider={usersToSlider} fromSlider={sliderToUsers} sliderMax={1000} format={(v) => int.format(v)} hint={`Total de usuários ao lançar, ativos + gratuitos. Com ${input.freePct}% gratuitos, ${int.format(out.payingUsers)} são ativos.`} />
             <Control tone="revenue" emoji="🆓" label="Usuários gratuitos" value={input.freePct} onChange={set("freePct")} min={LIMITS.freePct.min} max={LIMITS.freePct.max} step={LIMITS.freePct.step}
               format={(v) => v.toFixed(0)} suffix="%" hint={input.freePct === 0 ? "Sem plano gratuito: toda a base é ativa (paga)." : `Parte da base que não paga. Os outros ${100 - input.freePct}% são ativos (pagantes). Freemium costuma ter 95% a 98% gratuitos.`} />
             <Control tone="revenue" emoji="💵" label="Preço mensal" value={input.priceBrl} onChange={set("priceBrl")} min={LIMITS.priceBrl.min} max={LIMITS.priceBrl.max} step={LIMITS.priceBrl.step}
-              format={(v) => int.format(v)} prefix="R$" suffix="/mês" hint={`Por assinante. Equivale a ${usd.format(input.priceBrl / input.fx)}.`} />
+              format={(v) => int.format(v)} prefix="R$" suffix="/mês" hint={input.priceBrl === 0 ? "Grátis: sem receita de assinatura." : `Por assinante ativo. Equivale a ${usd.format(input.priceBrl / input.fx)}.`} />
             <Control tone="revenue" emoji="📈" label="Crescimento" value={input.growthPct} onChange={set("growthPct")} min={LIMITS.growthPct.min} max={LIMITS.growthPct.max} step={LIMITS.growthPct.step}
               format={(v) => v.toFixed(1).replace(".", ",")} suffix="% ao mês" hint="Crescimento mensal da base, composto. SaaS saudável: 5% a 10%." />
           </div>

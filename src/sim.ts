@@ -31,7 +31,7 @@ export interface SimOutput {
 export const LIMITS = {
   users: { min: 100, max: 1_000_000 },
   freePct: { min: 0, max: 100, step: 1 },
-  priceBrl: { min: 10, max: 500, step: 5 },
+  priceBrl: { min: 0, max: 500, step: 5 },
   fx: { min: 1, max: 10, step: 0.01 },
   fixedCostsBrl: { min: 0, max: 1_000_000, step: 500 },
   variablePct: { min: 0, max: 60, step: 1 },
@@ -88,7 +88,7 @@ export function simulate(i: SimInput): SimOutput {
 
   // net(u) = u * share * priceBrl * (1 - v) - fixed  =>  u = fixed / (share * priceBrl * (1 - v))
   const perUserNet = payingShare * priceBrl * (1 - i.variablePct / 100);
-  const breakEvenUsers = perUserNet > 0 ? Math.ceil(i.fixedCostsBrl / perUserNet) : null;
+  const breakEvenUsers = perUserNet > 0 ? Math.max(1, Math.ceil(i.fixedCostsBrl / perUserNet)) : null;
 
   return {
     payingUsers,
@@ -136,4 +136,28 @@ export function timeline(i: SimInput): { points: TimelinePoint[]; investment: nu
     if (paybackMonth === null && m > 0 && cash >= 0 && points[m - 1].cash < 0) paybackMonth = m;
   }
   return { points, investment: i.buildMonths * i.fixedCostsBrl, paybackMonth };
+}
+
+/** Friendly query-string names for sharing a scenario by URL. */
+export const URL_KEYS: Record<keyof SimInput, string> = {
+  users: "usuarios", freePct: "gratuitos", priceBrl: "preco", fx: "cambio",
+  fixedCostsBrl: "fixos", variablePct: "variaveis", growthPct: "crescimento", buildMonths: "construcao"
+};
+
+export function fromQuery(query: string): SimInput {
+  const q = new URLSearchParams(query);
+  const out = { ...DEFAULTS };
+  for (const key of Object.keys(URL_KEYS) as (keyof SimInput)[]) {
+    const raw = q.get(URL_KEYS[key]);
+    if (raw === null) continue;
+    const n = parseFloat(raw.replace(",", "."));
+    if (!Number.isNaN(n)) out[key] = clamp(n, LIMITS[key].min, LIMITS[key].max);
+  }
+  return out;
+}
+
+export function toQuery(i: SimInput): string {
+  const q = new URLSearchParams();
+  for (const key of Object.keys(URL_KEYS) as (keyof SimInput)[]) q.set(URL_KEYS[key], String(i[key]));
+  return q.toString();
 }
